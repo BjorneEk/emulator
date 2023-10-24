@@ -5,8 +5,6 @@
  *
  * emulator
  *==========================================================*/
-
-#include "../../Instructions/instructions.h"
 #include "util/types.h"
 #include <stdio.h>
 
