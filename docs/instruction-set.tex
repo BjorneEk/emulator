@@ -1,0 +1,235 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage[utf8]{inputenc}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage[colorinlistoftodos]{todonotes}
+\usepackage{systeme}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{blindtext}
+\usepackage{needspace}
+
+\lstdefinelanguage{ASM}
+{
+  morekeywords={ldr, mov},
+  sensitive=false,
+  morecomment=[l]{;},
+  morecomment=[s]{/*}{*/},
+}
+
+\lstset{
+  language=ASM,
+  basicstyle=\ttfamily,
+  keywordstyle=\bfseries,
+  commentstyle=\itshape,
+  breaklines=true,
+  frame=single,
+  numbers=left,
+  numberstyle=\tiny,
+  captionpos=b,
+  tabsize=8,
+  float,
+}
+\pagestyle{empty}
+
+\title{Instruction Set -inkorrekt \\\small 16 bit emulator}
+\author{Gustaf Franzén och Adam Månsson}
+
+\begin{document}
+	\maketitle
+
+	\section*{Specifikationer}
+
+	\subsection*{Generella}
+	16-bitars little-endian cpu \newline
+	32-bitars-address bus \newline
+	4-Mb ram från address \(0x00000000 - 0x003FFFFF\) \newline
+	4-Gb rom från \(0x003FFFFF - 0xFFFFFFFF\) \newline
+	16-bit IO controller
+
+	\subsection*{Register}
+	10 16-bitars register \(r0 - r9\) \newline
+	10 8-bitars register \(b0 - b9\) som motsvarar de minst
+	signifikanta bitarna i motsvarande 16 bitars register
+	\newline
+	16-bitars Stack pointer register \(sp\) \newline
+	16-bitars Status register \(sr\) \newline
+	32-bitars program-counter register \(pc\)
+
+	r16 refererar till ett 16-bitars register (r0-r9 | sp), r8 ett 8-bitars
+
+	\subsection*{Addressing-modes}
+	processorn stödjer 8 sätt att accessa minne från 32-bitars bussen.
+	i Direkt addressering specifiseras en address direkt medans
+	i inderekt addressering specificeras en address där den direkta addressen ligger.
+	Absolut adressering menas att hela 32-bitars adressen är specificerad
+	medans med zeropage addressing specificeras endast en 16-bitars adress, därför kommer man endast åt de första \(2^16\) addresserna
+	\newline
+	\begin{table}[H]
+		\centering
+		\begin{tabular}{|c|c|}
+		\hline
+		\textbf{type} & \textbf{description}\\
+		\hline
+		r16 & 16-bit register (r0-r9 | sp) \\
+		\hline
+		r8 & 8-bit register b0-b9 \\
+		\hline
+		im16 & 16-bit immidiate value \\
+		\hline
+		im32 & 32-bit immidiate value \\
+		\hline
+		[\textbf{value}]:8 & the 8-bit stored at \textbf{value} \\
+		\hline
+		[\textbf{value}]:16 & the 16-bit value stored at \textbf{value} \\
+		\hline
+		[\textbf{value}]:32 & the 32-bit value stored at \textbf{value} \\
+		\hline
+		\end{tabular}
+		\caption{H:r16, L:r16}
+		\label{tab:dir-abs}
+	\end{table}
+	\subsubsection*{Direct Absolute}
+	\begin{table}[H]
+		\centering
+		\begin{tabular}{|p{2cm}|p{2cm}|p{2cm}|}
+		\hline
+		\textbf{abs} & \multicolumn{2}{|c|}{direct} \\
+		\hline
+		\textbf{args} & \(\textless H:r16 \textgreater\) & \(\textless L:r16 \textgreater\) \\
+		\hline
+		\end{tabular}
+	\end{table}
+	In Direct Absolute addressing the absolute adress is formed by
+	combining two registers to form a 32 bit address
+	\newline
+	\textbf{syntax exaple to load r2 from address 0xABCD1234:}
+	\newline
+	\begin{needspace}{\baselineskip}
+	\begin{lstlisting}[language=ASM, label={lst:armcode}]
+	mov r0, #0xABCD
+	mov r1, #0x1234
+	ldr r2, r0, r1
+	\end{lstlisting}
+	\end{needspace}
+
+	\subsubsection*{Direct Absolute Immidiate}
+	\begin{table}[H]
+		\centering
+		\begin{tabular}{|p{2cm}|p{4cm}|}
+		\hline
+		\textbf{abs} & direct \\
+		\hline
+		\textbf{args} & \(\textless V:im32 \textgreater\) \\
+		\hline
+		\end{tabular}
+	\end{table}
+	In Direct Absolute Immidiate addressing the absolute adress is
+	supplied as a 32 bit immidiate value
+	\newline
+	\textbf{syntax exaple to load r2 from address 0xABCD1234:}
+	\newline
+	\begin{needspace}{\baselineskip}
+	\begin{lstlisting}[language=ASM, label={lst:armcode}]
+	ldr r2, #0xABCD1234
+	\end{lstlisting}
+	\end{needspace}
+
+	\subsubsection*{Direct Zeropage}
+	\begin{table}[H]
+		\centering
+		\begin{tabular}{|p{2cm}|p{2cm}|p{2cm}|}
+		\hline
+		\textbf{abs} & \multicolumn{2}{|c|}{direct} \\
+		\hline
+		\textbf{args} & \(\textless 0x0000 \textgreater\) & \(\textless Z:r16 \textgreater\) \\
+		\hline
+		\end{tabular}
+	\end{table}
+	Direct Zeropage addressing the absolute adress is
+	suplied as a 16-bit register and padded with 0s
+	\newline
+	\textbf{syntax exaple to load r1 from address 0x1234:}
+	\newline
+	\begin{needspace}{\baselineskip}
+	\begin{lstlisting}[language=ASM, label={lst:armcode}]
+	mov r0, #1234
+	ldr r1, r0
+	\end{lstlisting}
+	\end{needspace}
+
+	\subsubsection*{Direct Zeropage Immidiate-offset}
+	\begin{table}[H]
+		\centering
+		\begin{tabular}{|p{2cm}|p{2cm}|p{2cm}|}
+		\hline
+		\textbf{abs} & \multicolumn{2}{|c|}{direct} \\
+		\hline
+		\textbf{args} & \(\textless 0x0000 \textgreater\) & \(\textless R:r16 \textgreater + \textless O:im16 \textgreater\) \\
+		\hline
+		\end{tabular}
+	\end{table}
+	Direct Zeropage Immidiate-offset addressing the absolute adress is
+	formed by a 16-bit register added with a immidiate offset, and padded with 0s
+	\newline
+	\textbf{syntax exaple to load r1 from address 0x1235:}
+	\newline
+	\begin{needspace}{\baselineskip}
+	\begin{lstlisting}[language=ASM, label={lst:armcode}]
+	mov r0, #1234
+	ldr r1, r0, #1
+	\end{lstlisting}
+	\end{needspace}
+
+	\subsubsection*{Inderect Absolute Immidiate}
+	\begin{table}[H]
+		\centering
+		\begin{tabular}{|p{2cm}|p{4cm}|}
+		\hline
+		\textbf{abs} & direct=[inderect]:32 \\
+		\hline
+		\textbf{abs} & inderect \\
+		\hline
+		\textbf{args} & \(\textless V :im32\textgreater\) \\
+		\hline
+		\end{tabular}
+		\caption{V:im32}
+		\label{tab:dir-zp-imof}
+	\end{table}
+	Inderect Absolute Immidiate addressing the absolute adress is
+	read from the supplied address
+	\newline
+	\textbf{syntax exaple to load r1 with 10 from address(0x00FF0000) stored at 0x1235}
+	\newline
+	\begin{needspace}{\baselineskip}
+	\begin{lstlisting}[language=ASM, label={lst:armcode}]
+	mov r0, #10
+	str r0, #0x00FF0000
+
+	mov r0, #0x0000
+	mov r1, #0x00FF
+
+	str r0, #0x00001235
+	str r1, #0x00001235 + #1 ; store in little endian
+
+	ldr r1, [#0x00001235]
+	\end{lstlisting}
+	\end{needspace}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\end{document}
