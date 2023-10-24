@@ -1,1 +1,2 @@
-*.o
+assembler/assembler
+emulator/emulator

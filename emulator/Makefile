@@ -1,5 +1,4 @@
-TARGET=emulator.o
-
+TARGET=emulator
 # Files
 SOURCE_DIR:=src
 INSTRUCTIONS_DIR:=../instructions
