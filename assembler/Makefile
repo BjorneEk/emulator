@@ -1,4 +1,4 @@
-TARGET=assembler
+TARGET=assembler.o
 
 # Files
 SOURCE_DIR:=src

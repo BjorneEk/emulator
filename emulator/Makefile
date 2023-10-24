@@ -1,4 +1,4 @@
-TARGET=emulator
+TARGET=emulator.o
 
 # Files
 SOURCE_DIR:=src
