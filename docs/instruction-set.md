@@ -37,25 +37,25 @@ cprp    Rdh, Rdl, Rsh, Rsl  - copy register pair    (implied)
 branch and jump:
 bz      - branch on zero            (relative)
 bnz     - branch not zero           (relative)
-bcc     - branch on cary clear      (relative)
-bcs     - branch on cary set        (relative)
+bcc     - branch on carry clear     (relative)
+bcs     - branch on carry set       (relative)
 brn     - branch negative           (relative)
 brp     - branch posetive           (relative)
 bra     - unconditional branch      (relative)
 lbra    - unconditional long branch (abs, abs-ptr)
 call    - long call to subrutine    (abs, abs-ptr, zp)
-rts     - return from subrutine     (implied)
+ret     - return from subrutine     (implied)
 rti     - return from interrupt     (implied)
 
 arithmetic and logic:
-adc     Rd, Rs      - add with cary                 all
-add     Rd, Rs      - add without cary              all
-adcw    Rdh, Rdl    - add with cary wide            all
-addw    Rdh, Rdl    - add without cary wide         all
-sbc     Rd, Rs      - subtract with cary            all
-sub     Rd, Rs      - subtract without cary         all
-sbcw    Rdh, Rdl    - subtract with cary wide       all
-subw    Rdh, Rdl    - subtract without cary wide    all
+adc     Rd, Rs      - add with carry                all
+add     Rd, Rs      - add without carry             all
+adcw    Rdh, Rdl    - add with carry wide           all
+addw    Rdh, Rdl    - add without carry wide        all
+sbc     Rd, Rs      - subtract with carry           all
+sub     Rd, Rs      - subtract without carry        all
+sbcw    Rdh, Rdl    - subtract with carry wide      all
+subw    Rdh, Rdl    - subtract without carry wide   all
 eor     Rd, Rs      - exclusive or                  all
 orr     Rd, Rs      - or                            all
 and     Rd, Rs      - and                           all
@@ -66,6 +66,7 @@ lsl     Rd          - logic shift left              (implied)
 not     Rd          - negate                        (implied)
 dec     Rd          - decrement                     (implied)
 decw    Rdh, Rdl    - decrement wide                (implied)
+inc     Rd          - increment                     (implied)
 incw    Rdh, Rdl    - increment wide                (implied)
 crb     Rd,         - clear bit in register         all
 srb     Rd,         - set bit in register           all
