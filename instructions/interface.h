@@ -5,6 +5,8 @@
  *
  * instructions
  *==========================================================*/
+#ifndef _INTERFACE_H_
+#define _INTERFACE_H_
 
 typedef enum register_type {
 	REG_R0 = 0,
@@ -312,3 +314,4 @@ typedef enum instruction_type {
 	INSTR_CRB	=	SINSTR_CRB_IMMIDIATE,
 	INSTR_SRB	=	SINSTR_SRB_IMMIDIATE
 } instruction_type_t;
+#endif /* _INTERFACE_H_ */
