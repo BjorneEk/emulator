@@ -302,11 +302,13 @@ struct insmap_kvpair {
 	int slen;
 	int ins;
 };
+
 static struct insmap_kvpair insmap[] = {
 #define INSMAP_KVPAIR(instr) {#instr, sizeof(STR_##instr), TK_##instr},
 	XMACRO_INSTRUCTIONS(INSMAP_KVPAIR)
 #undef INSMAP_KVPAIR
 };
+
 static int tk_instr_rec(tokenizer_t *t, char *rs, char *strb, struct insmap_kvpair *map, int len, int *d)
 {
 	int c, c1;
@@ -339,7 +341,6 @@ static int tk_instr_rec(tokenizer_t *t, char *rs, char *strb, struct insmap_kvpa
 	++*d;
 	return tk_instr_rec(t, rs, strb_, map_, len_, d);
 }
-
 static bool tk_instr(tokenizer_t *t, char *ifnot, tk_t *tok)
 {
 	int type;
