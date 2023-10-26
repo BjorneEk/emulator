@@ -8,7 +8,24 @@
 #ifndef _INTERFACE_H_
 #define _INTERFACE_H_
 
-typedef enum register_type {
+#define XMACRO_REGISTER(X)	\
+	X(R0)	X(R1)	X(R2)	\
+	X(R3)	X(R4)	X(R5)	\
+	X(R6)	X(R7)	X(R8)	\
+	X(R9)	X(R10)	X(R11)	\
+	X(STACK_POINTER)	\
+	X(PROCESSOR_STATUS)	\
+	X(PROGRAM_COUNTER_L)	\
+	X(PROGRAM_COUNTER_H)
+
+enum endian {
+	LITTLE_ENDIAN,
+	BIG_ENDIAN
+};
+
+const enum endian endian = BIG_ENDIAN;
+
+typedef enum reg_type {
 	REG_R0 = 0,
 	REG_R1,
 	REG_R2,
@@ -27,6 +44,13 @@ typedef enum register_type {
 	REG_PROGRAM_COUNTER_H
 } reg_type_t;
 
+#define XMACRO_ADDRESSING_MODES(X)	\
+	X(IMMIDIATE)	X(REG)		\
+	X(ABS)		X(ABS_PTR)	\
+	X(ABS_IDX)	X(ABS_PTR_IDX)	\
+	X(ABS_PTR_OFF)	X(ZP_PTR)	\
+	X(ZP_OFF)	X(ZP_IDX)
+
 typedef enum addressing_mode {
 	ADDR_MODE_IMMIDIATE = 0,
 	ADDR_MODE_REG,
@@ -40,6 +64,7 @@ typedef enum addressing_mode {
 	ADDR_MODE_ZP_IDX
 } addressing_mode_t;
 
+
 typedef enum subinstruction_type {
 	SINSTR_NOP = 0,
 	SINSTR_BRK,
@@ -52,6 +77,15 @@ typedef enum subinstruction_type {
 	SINSTR_LDR_ZP_PTR,
 	SINSTR_LDR_ZP_OFF,
 	SINSTR_LDR_ZP_IDX,
+
+	SINSTR_LDRB_ABS,
+	SINSTR_LDRB_ABS_PTR,
+	SINSTR_LDRB_ABS_IDX,
+	SINSTR_LDRB_ABS_PTR_IDX,
+	SINSTR_LDRB_ABS_PTR_OFF,
+	SINSTR_LDRB_ZP_PTR,
+	SINSTR_LDRB_ZP_OFF,
+	SINSTR_LDRB_ZP_IDX,
 
 	SINSTR_LDRW_ABS,
 	SINSTR_LDRW_ABS_PTR,
@@ -70,6 +104,15 @@ typedef enum subinstruction_type {
 	SINSTR_STR_ZP_PTR,
 	SINSTR_STR_ZP_OFF,
 	SINSTR_STR_ZP_IDX,
+
+	SINSTR_STRB_ABS,
+	SINSTR_STRB_ABS_PTR,
+	SINSTR_STRB_ABS_IDX,
+	SINSTR_STRB_ABS_PTR_IDX,
+	SINSTR_STRB_ABS_PTR_OFF,
+	SINSTR_STRB_ZP_PTR,
+	SINSTR_STRB_ZP_OFF,
+	SINSTR_STRB_ZP_IDX,
 
 	SINSTR_CPR_IMMIDIATE,
 	SINSTR_CPR_REG,
@@ -272,12 +315,30 @@ typedef enum subinstruction_type {
 	SINSTR_SRB_ZP_IDX,
 } subinstruction_type_t;
 
+#define XMACRO_INSTRUCTIONS(X)	\
+	X(NOP)	X(BRK)	X(LDR)	\
+	X(LDRB)	X(LDRW)	X(STR)	\
+	X(STRB)	X(CPR)	X(CPRP)	\
+	X(BZ)	X(BNZ)	X(BCC)	\
+	X(BCS)	X(BRN)	X(BRP)	\
+	X(BRA)	X(LBRA)	X(CALL)	\
+	X(RET)	X(RTI)	X(ADC)	\
+	X(ADD)	X(ADCW)	X(ADDW)	\
+	X(SBC)	X(SUB)	X(SBCW)	\
+	X(SUBW)	X(EOR)	X(ORR)	\
+	X(AND)	X(CMP)	X(ASR)	\
+	X(LSL)	X(LSR)	X(NOT)	\
+	X(DEC)	X(DECW)	X(INC)	\
+	X(INCW)	X(CRB)	X(SRB)	\
+
 typedef enum instruction_type {
 	INSTR_NOP	=	SINSTR_NOP,
 	INSTR_BRK	=	SINSTR_BRK,
 	INSTR_LDR	=	SINSTR_LDR_ABS,
+	INSTR_LDRB	=	SINSTR_LDRB_ABS,
 	INSTR_LDRW	=	SINSTR_LDRW_ABS,
 	INSTR_STR	=	SINSTR_STR_ABS,
+	INSTR_STRB	=	SINSTR_STRB_ABS,
 	INSTR_CPR	=	SINSTR_CPR_IMMIDIATE,
 	INSTR_CPRP	=	SINSTR_CPRP,
 	INSTR_BZ	=	SINSTR_BZ,
@@ -312,6 +373,52 @@ typedef enum instruction_type {
 	INSTR_INC	=	SINSTR_INC,
 	INSTR_INCW	=	SINSTR_INCW,
 	INSTR_CRB	=	SINSTR_CRB_IMMIDIATE,
-	INSTR_SRB	=	SINSTR_SRB_IMMIDIATE
+	INSTR_SRB	=	SINSTR_SRB_IMMIDIATE,
+	INSTR_NULL
 } instruction_type_t;
+
+
+#define STR_NOP		"nop"
+#define STR_BRK		"brk"
+#define STR_LDR		"ldr"
+#define STR_LDRB	"ldrb"
+#define STR_LDRW	"ldrw"
+#define STR_STR		"str"
+#define STR_STRB	"strb"
+#define STR_CPR		"cpr"
+#define STR_CPRP	"cprp"
+#define STR_BZ		"bz"
+#define STR_BNZ		"bnz"
+#define STR_BCC		"bcc"
+#define STR_BCS		"bcs"
+#define STR_BRN		"brn"
+#define STR_BRP		"brp"
+#define STR_BRA		"bra"
+#define STR_LBRA	"lbra"
+#define STR_CALL	"call"
+#define STR_RET		"ret"
+#define STR_RTI		"rti"
+#define STR_ADC		"adc"
+#define STR_ADD		"add"
+#define STR_ADCW	"adcw"
+#define STR_ADDW	"addw"
+#define STR_SBC		"sbc"
+#define STR_SUB		"sub"
+#define STR_SBCW	"sbcw"
+#define STR_SUBW	"subw"
+#define STR_EOR		"eor"
+#define STR_ORR		"orr"
+#define STR_AND		"and"
+#define STR_CMP		"cmp"
+#define STR_ASR		"asr"
+#define STR_LSL		"lsl"
+#define STR_LSR		"lsr"
+#define STR_NOT		"not"
+#define STR_DEC		"dec"
+#define STR_DECW	"decw"
+#define STR_INC		"inc"
+#define STR_INCW	"incw"
+#define STR_CRB		"crb"
+#define STR_SRB		"srb"
+
 #endif /* _INTERFACE_H_ */
