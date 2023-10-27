@@ -14,18 +14,18 @@
 #include <stdio.h>
 
 #define XMACRO_OTHER_TOKENS(X)				\
-	X(REGISTER)		X(LABEL_REFERENCE)	\
+	X(REGISTER)		X(CHARACTER_LITERAL)	\
 	X(STRING_LITERAL)	X(INTEGER_LITERAL)	\
 	X(LSR_OP)		X(LSL_OP)		\
-	X(LABEL_DEFINITION)	X(SECTION_GLOBAL)	\
+	X(IDENT)		X(SECTION_GLOBAL)	\
 	X(SECTION_TEXT)		X(SECTION_DATA)		\
 	X(STRING)		X(CHAR)			\
 	X(I8)			X(U8)			\
 	X(I16)			X(U16)
 
 enum token_type {
-	TK_NULL = INSTR_NULL,
-#define TOKEN_NAME(name) TK_##name = INSTR_##name,
+	TK_NULL = 0xFF,
+#define TOKEN_NAME(name) TK_##name,
 	XMACRO_INSTRUCTIONS(TOKEN_NAME)
 #undef TOKEN_NAME
 #define TOKEN_NAME(name) TK_##name,
@@ -33,6 +33,7 @@ enum token_type {
 #undef TOKEN_NAME
 };
 
+#define MAX_IDENT (500)
 typedef struct tpos {
 	int		line;
 	int		column;
@@ -48,7 +49,7 @@ typedef struct debug_info {
 typedef struct token {
 	int type;
 	union {
-		int int_val;
+		u64_t int_val;
 		char *str_val;
 		int reg;
 	};
@@ -63,5 +64,7 @@ tk_t		tk_next(tokenizer_t *tokenizer);
 tk_t		tk_prev(tokenizer_t *tokenizer);
 void		tk_rev(tokenizer_t *tokenizer, tk_t t);
 void		tk_close(tokenizer_t **tokenizer);
+
+void		tk_print(tk_t t);
 
 #endif /* _TOKENIZER_H_ */
