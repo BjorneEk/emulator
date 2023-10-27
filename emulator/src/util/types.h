@@ -12,11 +12,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef int			heltal_t;
-typedef unsigned int 		possetivt_heltal_t;
-typedef long long 		stort_heltal_t;
-typedef unsigned long long	stort_possetivt_heltal_t;
-
 typedef uint8_t		u8_t;
 typedef uint16_t	u16_t;
 typedef uint32_t	u32_t;

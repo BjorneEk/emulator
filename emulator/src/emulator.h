@@ -14,9 +14,11 @@
 #include "util/types.h"
 
 typedef struct emulator {
-	cpu_t cpu;
-	memory_t mem;
+	cpu_t *cpu;
+	memory_t *mem;
 } emulator_t;
+
+void init_emulator(emulator_t *em);
 
 u8_t fetch_byte(emulator_t *em);
 

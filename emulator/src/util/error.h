@@ -11,8 +11,8 @@
 
 #include <stdarg.h>
 
-#define ASSERT(_expr, ...) if(!(_expr)) { exit_error_custom("Assertion Error", __VA_ARGS__); }
-
+#define ASSERT_(_expr, ...) if(!(_expr)) { exit_error_custom("Assertion Error", __VA_ARGS__); }
+#define ASSERT(_expr) if(!(_expr)) { exit_error_custom("Assert", "Assertion failed in function: %s, in file: %s, line: %i", __FUNCTION__, __FILE__, __LINE__);}
 #define ERR() exit_error_custom("Error", "fatal error occured in function: %s, in file: %s, line: %i", __FUNCTION__, __FILE__, __LINE__)
 
 void verror(const char * fmt, va_list args);

@@ -304,7 +304,7 @@ struct insmap_kvpair {
 };
 
 static struct insmap_kvpair insmap[] = {
-#define INSMAP_KVPAIR(instr) {#instr, sizeof(STR_##instr), TK_##instr},
+#define INSMAP_KVPAIR(instr) {#instr, sizeof(#instr), TK_##instr},
 	XMACRO_INSTRUCTIONS(INSMAP_KVPAIR)
 #undef INSMAP_KVPAIR
 };

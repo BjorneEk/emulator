@@ -18,12 +18,12 @@
 	X(PROGRAM_COUNTER_L)	\
 	X(PROGRAM_COUNTER_H)
 
-enum endian {
+enum endian_ {
 	LITTLE_ENDIAN,
 	BIG_ENDIAN
 };
 
-const enum endian endian = BIG_ENDIAN;
+
 
 typedef enum reg_type {
 	REG_R0 = 0,
@@ -376,49 +376,5 @@ typedef enum instruction_type {
 	INSTR_SRB	=	SINSTR_SRB_IMMIDIATE,
 	INSTR_NULL
 } instruction_type_t;
-
-
-#define STR_NOP		"nop"
-#define STR_BRK		"brk"
-#define STR_LDR		"ldr"
-#define STR_LDRB	"ldrb"
-#define STR_LDRW	"ldrw"
-#define STR_STR		"str"
-#define STR_STRB	"strb"
-#define STR_CPR		"cpr"
-#define STR_CPRP	"cprp"
-#define STR_BZ		"bz"
-#define STR_BNZ		"bnz"
-#define STR_BCC		"bcc"
-#define STR_BCS		"bcs"
-#define STR_BRN		"brn"
-#define STR_BRP		"brp"
-#define STR_BRA		"bra"
-#define STR_LBRA	"lbra"
-#define STR_CALL	"call"
-#define STR_RET		"ret"
-#define STR_RTI		"rti"
-#define STR_ADC		"adc"
-#define STR_ADD		"add"
-#define STR_ADCW	"adcw"
-#define STR_ADDW	"addw"
-#define STR_SBC		"sbc"
-#define STR_SUB		"sub"
-#define STR_SBCW	"sbcw"
-#define STR_SUBW	"subw"
-#define STR_EOR		"eor"
-#define STR_ORR		"orr"
-#define STR_AND		"and"
-#define STR_CMP		"cmp"
-#define STR_ASR		"asr"
-#define STR_LSL		"lsl"
-#define STR_LSR		"lsr"
-#define STR_NOT		"not"
-#define STR_DEC		"dec"
-#define STR_DECW	"decw"
-#define STR_INC		"inc"
-#define STR_INCW	"incw"
-#define STR_CRB		"crb"
-#define STR_SRB		"srb"
 
 #endif /* _INTERFACE_H_ */

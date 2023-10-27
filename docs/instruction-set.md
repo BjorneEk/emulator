@@ -47,6 +47,9 @@ call    - long call to subrutine    (abs, abs-ptr, zp)
 ret     - return from subrutine     (implied)
 rti     - return from interrupt     (implied)
 
+adc r0, r1, r3
+adc r0, r1, [#0xFFFFFFFF]
+
 arithmetic and logic:
 adc     Rd, Rs      - add with carry                all
 add     Rd, Rs      - add without carry             all
@@ -74,3 +77,29 @@ srb     Rd,         - set bit in register           all
 general:
 brk     - halt execution    (implied)
 nop     - no op             (implied)
+
+
+immediate
+00000000|00000000|00000000|00000000|
+XXXXXXXX|00000000|VVVVVVVV|VVVVVVVV|
+opcode  |Rh || Rl| immediate value |
+pc += 4;
+
+register
+00000000|00000000|00000000|00000000|
+XXXXXXXX|00000000|RRRR0000|00000000|
+opcode  |Rh || Rl|R  ||   |00000000|
+pc += 3;
+
+absolute
+00000000|00000000|00000000|00000000|00000000|00000000|
+XXXXXXXX|00000000|VVVVVVVV|VVVVVVVV|VVVVVVVV|VVVVVVVV|
+opcode  |Rh || Rl|           absolute value          |
+pc += 6;
+
+absolute-pointer
+00000000|00000000|00000000|00000000|
+XXXXXXXX|00000000|RRRRRRRR|00000000|
+opcode  |Rh || Rl|Rh || rl|00000000|
+pc += 3;
+

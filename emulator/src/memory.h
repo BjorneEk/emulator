@@ -19,4 +19,15 @@ typedef struct memory {
 
 u8_t mem_read(memory_t *mem, u32_t addr);
 
+inline
+u16_t swp_u16(u16_t u)
+{
+	return (u << 8) | (u >> 8);
+}
+inline
+i16_t swp_i16(i16_t u)
+{
+	return (u << 8) | (u >> 8);
+}
+
 #endif /* _MEMORY_H_ */

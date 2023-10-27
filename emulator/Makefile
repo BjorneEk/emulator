@@ -14,7 +14,7 @@ OBJ+=${ASSEMB_FILES:.S=.o}
 CC:=gcc
 ARCH:=arm64 # make automatic
 OPT:=-g
-CFLAGS:= -I$(SOURCE_DIR) $(OPT) -Wall -Werror
+CFLAGS:= -I$(SOURCE_DIR) $(OPT)
 LIBS:=
 
 # Assembler
