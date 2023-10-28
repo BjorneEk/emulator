@@ -1,8 +1,9 @@
 
 .text:
 ldrr:
-	ldr r0, [#0xFFFF] ; comment
+	ldr r0, [#0xFF_FF] ; comment
 	cpr sp, r0 // comment
 	add sp, 'Q'
 .data:
-	a = "Hello, World\n"
+	a = """Hello, World
+	line 2"""

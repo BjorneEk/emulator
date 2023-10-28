@@ -74,7 +74,7 @@ static inline int peak(tokenizer_t *t)
 	pb(t, c);
 	return c;
 }
-static inline tk_t	tk(tokenizer_t *t, tpos_t p, int type)
+static tk_t	tk(tokenizer_t *t, tpos_t p, int type)
 {
 	tk_t res;
 	res.type = type;
@@ -84,8 +84,14 @@ static inline tk_t	tk(tokenizer_t *t, tpos_t p, int type)
 
 	return res;
 }
-
-static inline tk_t	treg(tokenizer_t *t, tpos_t p, int reg)
+static tk_t	tins(tokenizer_t *t, tpos_t p, int instype)
+{
+	tk_t res;
+	res = tk(t, p, TK_INSTRUCTION);
+	res.instype = instype;
+	return res;
+}
+static tk_t	treg(tokenizer_t *t, tpos_t p, int reg)
 {
 	tk_t res;
 
@@ -94,7 +100,7 @@ static inline tk_t	treg(tokenizer_t *t, tpos_t p, int reg)
 	return res;
 }
 
-static inline tk_t	tstr(tokenizer_t *t, tpos_t p, int type, char *nm)
+static tk_t	tstr(tokenizer_t *t, tpos_t p, int type, char *nm)
 {
 	tk_t res;
 
@@ -103,12 +109,12 @@ static inline tk_t	tstr(tokenizer_t *t, tpos_t p, int type, char *nm)
 	return res;
 }
 
-static inline tk_t	tident(tokenizer_t *t, tpos_t p, char *nm)
+static tk_t	tident(tokenizer_t *t, tpos_t p, char *nm)
 {
 	return tstr(t, p, TK_IDENT, nm);
 }
 
-static inline tk_t	tstrlit(tokenizer_t *t, tpos_t p, char *nm)
+static tk_t	tstrlit(tokenizer_t *t, tpos_t p, char *nm)
 {
 	tk_t res;
 
@@ -116,7 +122,7 @@ static inline tk_t	tstrlit(tokenizer_t *t, tpos_t p, char *nm)
 	res.str_val = nm;
 	return res;
 }
-static inline tk_t	tint(tokenizer_t *t, tpos_t p, int type, int val)
+static tk_t	tint(tokenizer_t *t, tpos_t p, int type, int val)
 {
 	tk_t res;
 
@@ -124,11 +130,11 @@ static inline tk_t	tint(tokenizer_t *t, tpos_t p, int type, int val)
 	res.int_val = val;
 	return res;
 }
-static inline tk_t	tintlit(tokenizer_t *t, tpos_t p, int val)
+static tk_t	tintlit(tokenizer_t *t, tpos_t p, int val)
 {
 	return tint(t, p, TK_INTEGER_LITERAL, val);
 }
-static inline tk_t	tcharlit(tokenizer_t *t, tpos_t p, int val)
+static tk_t	tcharlit(tokenizer_t *t, tpos_t p, int val)
 {
 	return tint(t, p, TK_CHARACTER_LITERAL, val);
 }
@@ -326,7 +332,7 @@ struct insmap_kvpair {
 
 
 static struct insmap_kvpair insmap[] = {
-#define INSMAP_KVPAIR(instr) {#instr, sizeof(#instr), TK_##instr},
+#define INSMAP_KVPAIR(instr) {#instr, sizeof(#instr), INSTR_##instr},
 	XMACRO_INSTRUCTIONS(INSMAP_KVPAIR)
 #undef INSMAP_KVPAIR
 };
@@ -365,7 +371,7 @@ static int tk_instr_rec(tokenizer_t *t, char **rs, char *strb, struct insmap_kvp
 
 	if (len_ <= 0) {
 		*rs = strdup(strb_);
-		return TK_NULL;
+		return INSTR_NULL;
 	}
 
 	return tk_instr_rec(t, rs, strb_, map_, len_, d + 1);
@@ -381,10 +387,10 @@ static bool tk_instr(tokenizer_t *t, char **ifnot, tk_t *tok)
 
 	type = tk_instr_rec(t, ifnot, NULL, insmap, sizeof(insmap) / sizeof (struct insmap_kvpair), d);
 
-	if (type == TK_NULL) {
+	if (type == INSTR_NULL) {
 		return false;
 	}
-	*tok = tk(t, pos, type);
+	*tok = tins(t, pos, type);
 	return true;
 }
 
@@ -595,7 +601,7 @@ char *parse_strlit(tokenizer_t *t, tpos_t p)
 
 			incr_pos(t, c);
 			res = paste_buffer(res, &res_len, buff, (--buff_len, &buff_len), sizeof(char));
-			tk_error(t, p, buff_len, "unclosed string literal after \033[32;1;4m'%s'\033[0m \nUse \"\"\" 'string' \"\"\" for multiline strings", res);
+			tk_error(t, p, strlen(res), "unclosed string literal after \033[32;1;4m'%s'\033[0m \nUse \"\"\" 'string' \"\"\" for multiline strings", res);
 			return NULL;
 		}
 		if(buff_len + 2 == 4096) {
@@ -841,11 +847,16 @@ void tk_print(tk_t t)
 {
 	switch(t.type) {
 	#define INSTR_CASE(name) case TK_##name : printf("tok:	%s\n", #name); break;
-		XMACRO_INSTRUCTIONS(INSTR_CASE)
 		XMACRO_SIMPLE_TOK_(INSTR_CASE)
 	#undef INSTR_CASE
 
-
+		case TK_INSTRUCTION:
+			switch(t.instype) {
+			#define INSTR_CASE(name) case INSTR_##name : printf("ins:	%s\n", #name); break;
+				XMACRO_INSTRUCTIONS(INSTR_CASE)
+			#undef INSTR_CASE
+			}
+			break;
 		case TK_IDENT:
 			printf("ident:	%s\n", t.str_val);
 			break;
@@ -857,7 +868,7 @@ void tk_print(tk_t t)
 			}
 			break;
 		case TK_INTEGER_LITERAL:
-			printf("intlit:	%llu\n", t.int_val);
+			printf("intlit:	%i\n", t.int_val);
 			break;
 		case TK_CHARACTER_LITERAL:
 			printf("chlit:	'%c'\n", (int)t.int_val);

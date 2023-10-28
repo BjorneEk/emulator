@@ -21,16 +21,17 @@
 	X(SECTION_TEXT)		X(SECTION_DATA)		\
 	X(STRING)		X(CHAR)			\
 	X(I8)			X(U8)			\
-	X(I16)			X(U16)
+	X(I16)			X(U16)			\
+	X(INSTRUCTION)
 
 enum token_type {
 	TK_NULL = 0xFF,
 #define TOKEN_NAME(name) TK_##name,
-	XMACRO_INSTRUCTIONS(TOKEN_NAME)
-#undef TOKEN_NAME
-#define TOKEN_NAME(name) TK_##name,
 	XMACRO_OTHER_TOKENS(TOKEN_NAME)
 #undef TOKEN_NAME
+	TK_CONSTEXPR16,
+	TK_CONSTEXPR32,
+	TK_ADDR_MODE
 };
 
 #define MAX_IDENT (500)
@@ -49,7 +50,8 @@ typedef struct debug_info {
 typedef struct token {
 	int type;
 	union {
-		u64_t int_val;
+		int instype;
+		int int_val;
 		char *str_val;
 		int reg;
 	};
