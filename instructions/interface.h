@@ -131,6 +131,9 @@ typedef enum subinstruction_type {
 
 	SINSTR_BRP,
 
+	SINSTR_BBS,
+	SINSTR_BBC,
+
 	SINSTR_BRA,
 
 	SINSTR_LBRA_ABS,
@@ -321,15 +324,16 @@ typedef enum subinstruction_type {
 	X(STRB)	X(CPR)	X(CPRP)	\
 	X(BZ)	X(BNZ)	X(BCC)	\
 	X(BCS)	X(BRN)	X(BRP)	\
-	X(BRA)	X(LBRA)	X(CALL)	\
-	X(RET)	X(RTI)	X(ADC)	\
-	X(ADD)	X(ADCW)	X(ADDW)	\
-	X(SBC)	X(SUB)	X(SBCW)	\
-	X(SUBW)	X(EOR)	X(ORR)	\
-	X(AND)	X(CMP)	X(ASR)	\
-	X(LSL)	X(LSR)	X(NOT)	\
-	X(DEC)	X(DECW)	X(INC)	\
-	X(INCW)	X(CRB)	X(SRB)	\
+	X(BBS)	X(BBC)	X(BRA)	\
+	X(LBRA)	X(CALL)	X(RET)	\
+	X(RTI)	X(ADC)	X(ADD)	\
+	X(ADCW)	X(ADDW)	X(SBC)	\
+	X(SUB)	X(SBCW)	X(SUBW)	\
+	X(EOR)	X(ORR)	X(AND)	\
+	X(CMP)	X(ASR)	X(LSL)	\
+	X(LSR)	X(NOT)	X(DEC)	\
+	X(DECW)	X(INC)	X(INCW)	\
+	X(CRB)	X(SRB)
 
 typedef enum instruction_type {
 	INSTR_NOP	=	SINSTR_NOP,
@@ -347,6 +351,8 @@ typedef enum instruction_type {
 	INSTR_BCS	=	SINSTR_BCS,
 	INSTR_BRN	=	SINSTR_BRN,
 	INSTR_BRP	=	SINSTR_BRP,
+	INSTR_BBS	=	SINSTR_BBS,
+	INSTR_BBC	=	SINSTR_BBC,
 	INSTR_BRA	=	SINSTR_BRA,
 	INSTR_LBRA	=	SINSTR_LBRA_ABS,
 	INSTR_CALL	=	SINSTR_CALL_ABS,
