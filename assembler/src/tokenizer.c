@@ -8,6 +8,7 @@
 
 #include "tokenizer.h"
 #include "../../instructions/interface.h"
+#include "file.h"
 #include "util/error.h"
 #include <_ctype.h>
 #include <stdio.h>
@@ -16,57 +17,43 @@
 #include <string.h>
 #include <stdarg.h>
 
+
+
 typedef struct tokenizer {
-	FILE		*fp;
-	const char 	*filename;
+
+	file_t		file;
+
 	int		line;
 	int		column;
 	fpos_t		prevline_pos;
 	fpos_t		line_pos;
 
 	tk_t pb;
+
 	bool has_pb;
 } tokenizer_t;
-
-struct tokenizer_pos {
-	int		line;
-	int		column;
-	fpos_t		prevline_pos;
-	fpos_t		line_pos;
-};
 
 static char esc_chars[256] = {
 	['a'] = '\a', ['b'] = '\b',   ['f'] = '\f',
 	['n'] = '\n', ['r'] = '\r',   ['t'] = '\t',
 	['v'] = '\v', ['e'] = '\033', ['E'] = '\033',
 };
- __attribute__((unused))
-static inline struct tokenizer_pos get_pos(tokenizer_t *t)
-{
-	return (struct tokenizer_pos){t->line, t->column, t->prevline_pos, t->line_pos};
-}
- __attribute__((unused))
-static inline void set_pos(tokenizer_t *t, struct tokenizer_pos p)
-{
-	t->line = p.line;
-	t->column = p.column;
-	t->prevline_pos = p.prevline_pos;
-	t->line_pos = p.line_pos;
-}
+
 static inline tpos_t tpos(tokenizer_t *t)
 {
-	return (tpos_t) {t->line, t->column, t->prevline_pos};
+	return (tpos_t) {t->line, t->column, t->prevline_pos, &t->file};
 }
 
 static inline int next(tokenizer_t *t)
 {
-	return getc(t->fp);
+	return fnext(&t->file);
 }
 
 static inline void pb(tokenizer_t *t, int c)
 {
-	ungetc(c, t->fp);
+	fpb(&t->file, c);
 }
+
 static inline int peak(tokenizer_t *t)
 {
 	int c;
@@ -74,29 +61,32 @@ static inline int peak(tokenizer_t *t)
 	pb(t, c);
 	return c;
 }
+
 static tk_t	tk(tokenizer_t *t, tpos_t p, int type)
 {
 	tk_t res;
 	res.type = type;
-	res.debug.p		= p;
-	res.debug.filename	= t->filename;
-	res.debug.fp		= t->fp;
-
+	res.debug = p;
+	res.tklen = 1;
 	return res;
 }
+
 static tk_t	tins(tokenizer_t *t, tpos_t p, int instype)
 {
 	tk_t res;
 	res = tk(t, p, TK_INSTRUCTION);
 	res.instype = instype;
+	res.tklen = 3;
 	return res;
 }
+
 static tk_t	treg(tokenizer_t *t, tpos_t p, int reg)
 {
 	tk_t res;
 
 	res = tk(t, p, TK_REGISTER);
 	res.reg = reg;
+	res.tklen = 2;
 	return res;
 }
 
@@ -106,6 +96,7 @@ static tk_t	tstr(tokenizer_t *t, tpos_t p, int type, char *nm)
 
 	res = tk(t, p, type);
 	res.str_val = nm;
+	res.tklen = strlen(nm);
 	return res;
 }
 
@@ -114,12 +105,15 @@ static tk_t	tident(tokenizer_t *t, tpos_t p, char *nm)
 	return tstr(t, p, TK_IDENT, nm);
 }
 
+static tk_t	tsection(tokenizer_t *t, tpos_t p, char *nm)
+{
+	return tstr(t, p, TK_SECTION, nm);
+}
+
 static tk_t	tstrlit(tokenizer_t *t, tpos_t p, char *nm)
 {
 	tk_t res;
-
-	res = tk(t, p, TK_STRING_LITERAL);
-	res.str_val = nm;
+	res = tstr(t, p, TK_STRING_LITERAL, nm);
 	return res;
 }
 static tk_t	tint(tokenizer_t *t, tpos_t p, int type, int val)
@@ -128,6 +122,7 @@ static tk_t	tint(tokenizer_t *t, tpos_t p, int type, int val)
 
 	res = tk(t, p, type);
 	res.int_val = val;
+	res.tklen = 1;
 	return res;
 }
 static tk_t	tintlit(tokenizer_t *t, tpos_t p, int val)
@@ -146,7 +141,7 @@ static void incr_pos(tokenizer_t *t, int c)
 		++t->line;
 		t->column = 0;
 		t->prevline_pos = t->line_pos;
-		fgetpos(t->fp, &t->line_pos);
+		fgetpos(t->file.fp, &t->line_pos);
 	}
 }
 __attribute__((unused))
@@ -212,58 +207,67 @@ static bool skip_until_chars(tokenizer_t *t, char *s)
 	pb(t, c);
 	return skip_until_chars(t, s);
 }
-static char *get_debug_lines(FILE *fp, tpos_t tpos, int tklen)
+
+static void print_debug_lines(FILE *f, tpos_t tpos, int tklen)
 {
 	fpos_t org;
 	char l1[1024];
 	char l2[1024];
 	char l3[1024];
-	char ln1[32];
-	char ln2[32];
-	char ln3[32];
-	char *res;
+
+	char l_[1024];
+	char tok[1024];
 	int lc;
 
-	org = fgetpos(fp, &org);
+	org = fgetpos(tpos.file->fp, &org);
 
-	fsetpos(fp, &tpos.prevline_pos);
-	sprintf(ln1, "\033[32m\033[1m%5i\033[0m \033[1m|\033[0m ", tpos.line - 1);
-	sprintf(ln2, "\033[32m\033[1m%5i\033[0m \033[1m|\033[0m ", tpos.line);
-	sprintf(ln3, "\033[32m\033[1m%5i\033[0m \033[1m|\033[0m ", tpos.line + 1);
-	fgets(l1, sizeof(l1), fp);
-	lc = (fgets(l2, sizeof(l2), fp) && fgets(l3, sizeof(l3), fp)) ? 3 : 2;
+	fsetpos(tpos.file->fp, &tpos.prevline_pos);
 
 
+	fgets(l1, 1024, tpos.file->fp);
+	fgets(l2, 1024, tpos.file->fp);
+	lc = (fgets(l3, 1024, tpos.file->fp)) ? 3 : 2;
 
-	res = malloc(strlen(l1) + strlen(l2) + strlen(l3) + 400);
-	strcat(res, ln1);
-	strcat(res, l1);
-	strcat(res, ln2);
-	strncat(res, l2, tpos.column);
-	strcat(res, "\033[31;1;4m");
-	strncat(res, l2 + tpos.column, tklen);
-	strcat(res, "\033[0m");
-	strcat(res, l2 + tpos.column + tklen);
-	if (lc == 3) {
-		strcat(res, ln3);
-		strcat(res, l3);
+	if (tpos.line == 0) {
+		strncpy(l_, l1, tpos.column);
+		l_[tpos.column] = '\0';
+		strncpy(tok, l1 + tpos.column, tklen);
+		tok[tklen] = '\0';
+		fprintf(f, "\033[32m\033[1m%5i\033[0m \033[1m|\033[0m %s\033[31;1;4m%s\033[0m%s\033[32m", tpos.line + 1, l_, tok, l1 + tpos.column + tklen);
+		fprintf(f, "\033[32m\033[1m%5i\033[0m \033[1m|\033[0m %s", tpos.line + 2, l2);
+	} else {
+		strncpy(l_, l2, tpos.column);
+		l_[tpos.column] = '\0';
+		strncpy(tok, l2 + tpos.column, tklen);
+		tok[tklen] = '\0';
+		fprintf(f, "\033[32m\033[1m%5i\033[0m \033[1m|\033[0m %s", tpos.line, l1);
+		fprintf(f, "\033[32m\033[1m%5i\033[0m \033[1m|\033[0m %s\033[31;1;4m%s\033[0m%s\033[32m", tpos.line + 1, l_, tok, l2 + tpos.column + tklen);
 	}
-	fsetpos(fp, &org);
-	return res;
+
+	if (lc == 3)
+		printf("\033[32m\033[1m%5i\033[0m \033[1m|\033[0m %s\n", tpos.line + tpos.line == 0 ? 3 : 2, l3);
+	fsetpos(tpos.file->fp, &org);
+	return;
 }
 
-static void tk_error(tokenizer_t *t, tpos_t p, int tklen, const char *restrict fmt, ...)
+void tk_error(tpos_t p, int tklen, const char *restrict fmt, ...)
 {
 	va_list args;
-	char *debug_lines;
 
 	va_start(args, fmt);
 	verror_custom("Error", fmt, args);
-	fprintf(stderr, "In file: \033[1m%s\033[0m, line: \033[1m%i\033[0m, col: \033[1m%i\033[0m\n", t->filename, p.line, p.column);
-	debug_lines = get_debug_lines(t->fp, p, tklen);
-	puts(debug_lines);
-	free(debug_lines);
+	fprintf(stderr, "In file: \033[1m%s\033[0m, line: \033[1m%i\033[0m, col: \033[1m%i\033[0m\n", p.file->filename, p.line + 1, p.column + 1);
+	print_debug_lines(stderr, p, tklen);
 	exit(-1);
+}
+void tk_print_error(tk_t tk, const char *restrict fmt, ...)
+{
+	va_list args;
+
+	va_start(args, fmt);
+	verror_custom("Error", fmt, args);
+	fprintf(stderr, "In file: \033[1m%s\033[0m, line: \033[1m%i\033[0m, col: \033[1m%i\033[0m\n", tk.debug.file->filename, tk.debug.line + 1, tk.debug.column + 1);
+	print_debug_lines(stderr, tk.debug, tk.tklen);
 }
 
 bool is_ws(i32_t c)
@@ -306,7 +310,7 @@ static void skip_ws(tokenizer_t *t)
 			break;
 		multiline: // /* */ comment
 			if (!skip_until_chars(t, "*/"))
-				tk_error(t, pos, 2, "unclosed multiline comment");
+				tk_error(pos, 2, "unclosed multiline comment");
 			break;
 		default:
 			--t->column;
@@ -355,7 +359,7 @@ static int tk_instr_rec(tokenizer_t *t, char **rs, char *strb, struct insmap_kvp
 	for (i = 0; i < len; i++) {
 		if (d <= map[i].slen && map[i].s[d] == toupper(c) && map[i].slen - 2 == d) {
 			if (is_ws(peak(t))) {
-				t->column += d + 1;
+				//t->column += d + 1;
 				return map[i].ins;
 			}
 		} else if(d <= map[i].slen && map[i].s[d] == toupper(c) && map[i].slen >= d) {
@@ -438,8 +442,8 @@ found:
 		return true;
 not_found:
 	pb(t, c);
-		--t->column;
-		return false;
+	--t->column;
+	return false;
 }
 static bool skip_newline(tokenizer_t *t)
 {
@@ -448,7 +452,7 @@ static bool skip_newline(tokenizer_t *t)
 	c = next(t);
 	if (c == '\n') {
 		t->prevline_pos = t->line_pos;
-		fgetpos(t->fp, &t->line_pos);
+		fgetpos(t->file.fp, &t->line_pos);
 		t->column = 0;
 		++t->line;
 		return true;
@@ -502,7 +506,7 @@ static int hex(tokenizer_t *t, tpos_t p, char c)
 		return c - 'a' + 10;
 	if ('A' <= c && c <= 'F')
 		return c - 'A' + 10;
-	tk_error(t, p, 1, "error reading hexadecimal in literal");
+	tk_error(p, 1, "error reading hexadecimal in literal");
 	return 0;
 }
 
@@ -601,7 +605,7 @@ char *parse_strlit(tokenizer_t *t, tpos_t p)
 
 			incr_pos(t, c);
 			res = paste_buffer(res, &res_len, buff, (--buff_len, &buff_len), sizeof(char));
-			tk_error(t, p, strlen(res), "unclosed string literal after \033[32;1;4m'%s'\033[0m \nUse \"\"\" 'string' \"\"\" for multiline strings", res);
+			tk_error(p, strlen(res), "unclosed string literal after \033[32;1;4m'%s'\033[0m \nUse \"\"\" 'string' \"\"\" for multiline strings", res);
 			return NULL;
 		}
 		if(buff_len + 2 == 4096) {
@@ -690,11 +694,18 @@ static char *parse_ident(tokenizer_t *t, tpos_t p, char *head)
 	bool undo;
 	size_t len, len_;
 
+
+	if (head == NULL) {
+		len_ = len = 0;
+		goto read;
+	}
+
 	len_ = len = strlen(head) + 1;
 	strcpy(buffer, head);
 
 	if (!is_ident_begin(buffer[0]))
-		tk_error(t, p, 1, "Unexpected token: '%c'", buffer[0]);
+		tk_error(p, 1, "Unexpected token: '%c'", buffer[0]);
+
 	undo = false;
 	for (i = 1, j = 0; i < len - 1; i++) {
 		if (!undo && !is_ident(buffer[i])) {
@@ -707,6 +718,7 @@ static char *parse_ident(tokenizer_t *t, tpos_t p, char *head)
 	}
 	if (undo)
 		goto end;
+read:
 	while(is_ident(buffer[len++] = next(t)) && len < MAX_IDENT)
 		++t->column;
 	pb(t, buffer[len-1]);
@@ -719,7 +731,7 @@ end:
 
 	return res;
 }
-const char *SIMPLE_TOK = "*%&()[]=+|~-,:";
+const char *SIMPLE_TOK = "*%&()[]=+|~-,:^";
 
 tk_t		tk_next(tokenizer_t *t)
 {
@@ -768,16 +780,14 @@ tk_t		tk_next(tokenizer_t *t)
 			MATCH("string")	return tk(t, pos, TK_CHAR);
 			goto base;
 		case '.':
-			MATCH("global")	return tk(t, pos, TK_SECTION_GLOBAL);
-			MATCH("data")	return tk(t, pos, TK_SECTION_DATA);
-			MATCH("text")	return tk(t, pos, TK_SECTION_TEXT);
-			tk_error(t, pos, 1, "Expected section name: 'global', 'data' or 'text' after '.' character");
+			MATCH("global")	return tk(t, pos, TK_GLOBAL);
+			return tsection(t, pos, parse_ident(t, pos, NULL));
 		case '"':
 			return tstrlit(t, pos, parse_strlit(t, pos));
 		case '\'':
 			charlit = next_charlit(t);
 			if (next(t) != '\'')
-				tk_error(t, pos, 3, "Unclosed character literal: \033[32;1;4m\'%c\033[0m", charlit);
+				tk_error(pos, 3, "Unclosed character literal: \033[32;1;4m\'%c\033[0m", charlit);
 			return tcharlit(t, pos, charlit);
 		case EOF:
 			return tk(t, pos, TK_NULL);
@@ -792,7 +802,7 @@ base:		default:
 			return res;
 		if(is_ident_begin(ifnot[0]))
 			return tident(t, pos, parse_ident(t, pos, ifnot));
-		tk_error(t, pos, 1, "Unexpected token '%c'", peak(t));
+		tk_error(pos, 1, "Unexpected token '%c'", peak(t));
 	}
 	return tk(t, pos, c);
 }
@@ -802,16 +812,11 @@ tokenizer_t	*new_tokenizer(const char *const filename)
 	tokenizer_t *res;
 
 	res	= malloc(sizeof(tokenizer_t));
-
-	res->fp	= fopen(filename, "r");
-
-	if (!res->fp)
-		exit_error_custom("ASSEMBLER", "could not open file: %s", filename);
+	open_file(&res->file, filename, MODE_READ);
 
 	res->line	= 0;
 	res->column	= 0;
-	res->filename	= filename;
-	fgetpos(res->fp, &res->prevline_pos);
+	fgetpos(res->file.fp, &res->prevline_pos);
 	res->line_pos = res->prevline_pos;
 
 	return res;
@@ -838,48 +843,88 @@ void tk_rev(tokenizer_t *tk, tk_t t)
 }
 #define XMACRO_SIMPLE_TOK_(X)				\
 	X(LSR_OP)		X(LSL_OP)		\
-	X(SECTION_GLOBAL)	X(SECTION_TEXT)		\
-	X(SECTION_DATA)		X(STRING)		\
+	X(GLOBAL)		X(STRING)		\
 	X(CHAR)			X(I8)			\
 	X(U8)			X(I16)			\
 	X(U16)
+
+void tk_type_tostring(int t, char *res)
+{
+	switch(t) {
+	#define INSTR_CASE(name) case TK_##name : sprintf(res,"%s", #name); break;
+		XMACRO_SIMPLE_TOK_(INSTR_CASE)
+	#undef INSTR_CASE
+		case TK_INSTRUCTION:
+			sprintf(res, "instruction");
+			break;
+		case TK_SECTION:
+			sprintf(res, "section");
+			break;
+		case TK_IDENT:
+			sprintf(res, "identifyer");
+			break;
+		case TK_REGISTER:
+			sprintf(res, "register");
+			break;
+		case TK_INTEGER_LITERAL:
+			printf("integer-literal");
+			break;
+		case TK_CHARACTER_LITERAL:
+			printf("character-literal");
+			break;
+		case TK_STRING_LITERAL:
+			printf("string-literal");
+			break;
+		case TK_NULL:
+			printf("EOF");
+			break;
+		default:
+			printf("'%c'", t);
+	}
+	for (;*res != '\0'; res++)
+		*res = tolower(*res);
+}
+
 void tk_print(tk_t t)
 {
 	switch(t.type) {
-	#define INSTR_CASE(name) case TK_##name : printf("tok:	%s\n", #name); break;
+	#define INSTR_CASE(name) case TK_##name : printf("tok:		%s\n", #name); break;
 		XMACRO_SIMPLE_TOK_(INSTR_CASE)
 	#undef INSTR_CASE
 
 		case TK_INSTRUCTION:
 			switch(t.instype) {
-			#define INSTR_CASE(name) case INSTR_##name : printf("ins:	%s\n", #name); break;
+			#define INSTR_CASE(name) case INSTR_##name : printf("ins:		%s\n", #name); break;
 				XMACRO_INSTRUCTIONS(INSTR_CASE)
 			#undef INSTR_CASE
 			}
 			break;
+		case TK_SECTION:
+			printf("section:	%s\n", t.str_val);
+			break;
 		case TK_IDENT:
-			printf("ident:	%s\n", t.str_val);
+			printf("ident:		%s\n", t.str_val);
 			break;
 		case TK_REGISTER:
 			switch (t.reg) {
-			#define REG_CASE(rname) case REG_##rname : printf("reg:	%s\n", #rname); break;
+			#define REG_CASE(rname) case REG_##rname : printf("reg:		%s\n", #rname); break;
 				XMACRO_REGISTER(REG_CASE)
 			#undef REG_CASE
 			}
 			break;
 		case TK_INTEGER_LITERAL:
-			printf("intlit:	%i\n", t.int_val);
+			printf("intlit:		%i\n", t.int_val);
 			break;
 		case TK_CHARACTER_LITERAL:
-			printf("chlit:	'%c'\n", (int)t.int_val);
+			printf("chlit:		'%c'\n", (int)t.int_val);
 			break;
 		case TK_STRING_LITERAL:
-			printf("strlit:	\"%s\"\n", t.str_val);
+			printf("strlit:		\"%s\"\n", t.str_val);
 			break;
 		case TK_NULL:
-			printf("tok:	EOF\n");
+			printf("tok:		EOF\n");
 			break;
 		default:
-			printf("tok:	'%c'\n", t.type);
+			printf("tok:		'%c'\n", t.type);
 	}
 }

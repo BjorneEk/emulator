@@ -1,3 +1,8 @@
 *.o
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.synctex.gz
 assembler/assembler
 emulator/emulator

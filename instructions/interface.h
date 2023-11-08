@@ -64,7 +64,6 @@ typedef enum addressing_mode {
 	ADDR_MODE_ZP_IDX
 } addressing_mode_t;
 
-
 typedef enum subinstruction_type {
 	SINSTR_NOP = 0,
 	SINSTR_BRK,
@@ -316,6 +315,7 @@ typedef enum subinstruction_type {
 	SINSTR_SRB_ZP_PTR,
 	SINSTR_SRB_ZP_OFF,
 	SINSTR_SRB_ZP_IDX,
+	SINSTR_NULL	// used to extend type
 } subinstruction_type_t;
 
 #define XMACRO_INSTRUCTIONS(X)	\
@@ -380,7 +380,11 @@ typedef enum instruction_type {
 	INSTR_INCW	=	SINSTR_INCW,
 	INSTR_CRB	=	SINSTR_CRB_IMMIDIATE,
 	INSTR_SRB	=	SINSTR_SRB_IMMIDIATE,
-	INSTR_NULL
+
+	INSTR_NULL	// used to extend type
 } instruction_type_t;
+
+
+extern int subinstrution_size[SINSTR_NULL + 1];
 
 #endif /* _INTERFACE_H_ */

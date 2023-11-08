@@ -42,13 +42,7 @@ void		DLA_expand(dla_t *self, size_t size)
 		"DLA_expand, out of memory expanding array of size 0x%x bytes by 0x%x bytes",
 		self->_allocated, size * self->width);
 }
-
-static inline size_t space(dla_t *self)
-{
-	return self->_allocated - self->len;
-}
-
-f32_t max(f32_t a, f32_t b)
+static inline f32_t max(f32_t a, f32_t b)
 {
 	return (a >= b) ? a : b;
 }

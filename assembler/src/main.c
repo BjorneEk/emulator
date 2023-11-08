@@ -7,17 +7,19 @@
  *==========================================================*/
 
 #include "util/types.h"
-#include "tokenizer.h"
+#include "assembler.h"
 #include <stdio.h>
 
-int main(int argc, char *argv[])
+int main(int argc, const char *argv[])
 {
 	tokenizer_t *t;
-	tk_t tok;
+
+	//tk_t tok;
 	t = new_tokenizer(argv[1]);
-	do {
+	/*do {
 		tok = tk_next(t);
 		tk_print(tok);
-	} while (tok.type != TK_NULL);
+	} while (tok.type != TK_NULL);*/
+	parse(t);
 	return 0;
 }

@@ -12,63 +12,86 @@
 #include "structures/dynamic_array.h"
 #include "structures/hashmap.h"
 
-enum def_types {
-	DEF_UNDEFINED,
-	DEF_TEXT,
-	DEF_DATA,
-	DEF_RELATIVE_TEXT,
-	DEF_RELATIVE_DATA,
-	DEF_RELATIVE,
-	DEF_ABSOLUTE
+#define ASM_REG_COUNT (5)
+
+enum parser_types {
+	DATA_BYTE = SINSTR_NULL + 1,
+	DATA_WORD,
+	DATA_STRING,
+	DATA_WSTRING,
+
+	DEF_UNDEFINED = TK_LAST,
+	DEF_UNDEFINED_REF,
+	DEF_SECTION,
+	DEF_ABSOLUTE,
+	DEF_DEFINED,
+
+	EXPR_REF,
+	EXPR_ABS_REF,
+	EXPR_VAL4,
+	EXPR_VAL32
 };
+typedef struct constexpr constexpr_t;
 
 typedef struct def {
-	int	type;
-	bool	is_global;
-	char	*lbl;
-	u32_t	val;
-	bool	defined;
-	dla_t	*refs; // constexpr_t
-	tk_t	tk;
+	int		type;
+	bool		is_global;
+	char		*lbl;
+	constexpr_t	*val;
+	bool		ready;
+	dla_t		*refs; // constexpr_t*
+	tk_t		tk;
 } def_t;
+
+
 
 typedef struct constexpr {
 	int type;
-	int expected_type;
+	tk_t token;
+
 	union {
-		int	val;
-		def_t	*ref;
-		dla_t	*ops; // constexpr_t
+		int		val;
+		def_t		*ref;
+		constexpr_t	*expr;
+		dla_t		*ops; // constexpr_t*
 	};
-	struct constexpr *parent;
 } constexpr_t;
 
-typedef struct asm_instr {
+typedef struct section {
+	dla_t		*data;
+	hashmap_t	*labels;
+	int		size;
+	tk_t		tk;
+} section_t;
+
+typedef struct asm_entry {
 	int type;
+	int size;
+	int rel_addr;
+	tk_t token;
 	union {
-		constexpr_t *val32;
-		constexpr_t *val16;
+		struct {
+			constexpr_t *value;
+			int regs[ASM_REG_COUNT];
+		};
+
+		union {
+			u8_t	byte;
+			u16_t	word;
+			u8_t	*bytes;
+			u16_t	*words;
+		};
 	};
-	int regs[5];
+
 } asm_t;
 
-typedef struct data {
-	int type;
-	union {
-		char	*str;
-		u8_t	*bytes;
-		u16_t	*words;
-		u32_t	*lwords;
-	};
-} data_t;
-
 typedef struct program {
-	def_t *text_section;
-	def_t *data_section;
-	hashmap_t *undef_lbls;
-	hashmap_t *lbls;
-	dla_t	*global_export_defs;
-	dla_t	*instructions;
+	dla_t		*global_export_defs;	/* def_t*		*/
+	hashmap_t	*sections;		/* char*->section_t*	*/
+	hashmap_t	*labels;		/* char*->def_t*	*/
 } program_t;
+
+
+program_t *parse(tokenizer_t *t);
 
 #endif /* _ASSEMBLER_H_ */
