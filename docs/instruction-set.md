@@ -82,26 +82,22 @@ brk     - halt execution    (implied)
 nop     - no op             (implied)
 
 
-immediate
-00000000|00000000|00000000|00000000|
+immediate:
 XXXXXXXX|HHHHLLLL|VVVVVVVV|VVVVVVVV|
 opcode  |Rh || Rl| immediate value |
 pc += 4;
 
-register
-00000000|00000000|00000000|
+register:
 XXXXXXXX|HHHHLLLL|RRRR0000|
 opcode  |Rh || Rl|R  ||   |
 pc += 3;
 
-absolute
-00000000|00000000|00000000|00000000|00000000|00000000|
+absolute:
 XXXXXXXX|HHHHLLLL|VVVVVVVV|VVVVVVVV|VVVVVVVV|VVVVVVVV|
 opcode  |Rh || Rl|           absolute value          |
 pc += 6;
 
-absolute-pointer
-00000000|00000000|00000000|
+absolute-pointer:
 XXXXXXXX|HHHHLLLL|RRRRRRRR|
 opcode  |Rh || Rl|Rh || rl|
 pc += 3;
@@ -109,8 +105,7 @@ pc += 3;
 
 bbs 4bv, Rs	- branch register bit set   (relative)
 
-bbs, bbc
-00000000|00000000|00000000|
+bbs, bbc:
 XXXXXXXX|VVVVRRRR|ADDDDDDR|
 opcode  |4bv | Rl|rel-addr|
 pc += 3;
