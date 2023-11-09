@@ -23,8 +23,6 @@ enum endian_ {
 	BIG_ENDIAN
 };
 
-
-
 typedef enum reg_type {
 	REG_R0 = 0,
 	REG_R1,
@@ -61,7 +59,8 @@ typedef enum addressing_mode {
 	ADDR_MODE_ABS_PTR_OFF,
 	ADDR_MODE_ZP_PTR,
 	ADDR_MODE_ZP_OFF,
-	ADDR_MODE_ZP_IDX
+	ADDR_MODE_ZP_IDX,
+	ADDR_MODE_NULL
 } addressing_mode_t;
 
 typedef enum subinstruction_type {
@@ -112,9 +111,6 @@ typedef enum subinstruction_type {
 	SINSTR_STRB_ZP_PTR,
 	SINSTR_STRB_ZP_OFF,
 	SINSTR_STRB_ZP_IDX,
-
-	SINSTR_CPR_IMMIDIATE,
-	SINSTR_CPR_REG,
 
 	SINSTR_CPRP,
 
@@ -315,13 +311,14 @@ typedef enum subinstruction_type {
 	SINSTR_SRB_ZP_PTR,
 	SINSTR_SRB_ZP_OFF,
 	SINSTR_SRB_ZP_IDX,
-	SINSTR_NULL	// used to extend type
+
+	SINSTR_NULL	// used to extend enum
 } subinstruction_type_t;
 
 #define XMACRO_INSTRUCTIONS(X)	\
 	X(NOP)	X(BRK)	X(LDR)	\
 	X(LDRB)	X(LDRW)	X(STR)	\
-	X(STRB)	X(CPR)	X(CPRP)	\
+	X(STRB)	X(CPRP)		\
 	X(BZ)	X(BNZ)	X(BCC)	\
 	X(BCS)	X(BRN)	X(BRP)	\
 	X(BBS)	X(BBC)	X(BRA)	\
@@ -343,7 +340,6 @@ typedef enum instruction_type {
 	INSTR_LDRW	=	SINSTR_LDRW_ABS,
 	INSTR_STR	=	SINSTR_STR_ABS,
 	INSTR_STRB	=	SINSTR_STRB_ABS,
-	INSTR_CPR	=	SINSTR_CPR_IMMIDIATE,
 	INSTR_CPRP	=	SINSTR_CPRP,
 	INSTR_BZ	=	SINSTR_BZ,
 	INSTR_BNZ	=	SINSTR_BNZ,
@@ -381,10 +377,11 @@ typedef enum instruction_type {
 	INSTR_CRB	=	SINSTR_CRB_IMMIDIATE,
 	INSTR_SRB	=	SINSTR_SRB_IMMIDIATE,
 
-	INSTR_NULL	// used to extend type
+	INSTR_NULL	// used to extend enum
 } instruction_type_t;
 
-
-extern int subinstrution_size[SINSTR_NULL + 1];
+extern int addressing_mode_size[ADDR_MODE_NULL];
+extern int instrution_size[INSTR_NULL];
+extern int endian;
 
 #endif /* _INTERFACE_H_ */

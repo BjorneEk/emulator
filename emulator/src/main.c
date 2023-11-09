@@ -8,7 +8,7 @@
 
 #include "emulator.h"
 #include "../../instructions/interface.h"
-#include "util/types.h"
+#include "../../common/util/types.h"
 #include <stdio.h>
 
 extern void print_instruction_(int);

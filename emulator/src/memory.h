@@ -9,7 +9,7 @@
 #ifndef _MEMORY_H_
 #define _MEMORY_H_
 
-#include "util/types.h"
+#include "../../common/util/types.h"
 
 #define MEMORY_SIZE (0xFFFFFFFF)
 
@@ -19,13 +19,12 @@ typedef struct memory {
 
 u8_t mem_read(memory_t *mem, u32_t addr);
 
-inline
-u16_t swp_u16(u16_t u)
+inline u16_t swap_u16(u16_t u)
 {
 	return (u << 8) | (u >> 8);
 }
-inline
-i16_t swp_i16(i16_t u)
+
+inline i16_t swap_i16(i16_t u)
 {
 	return (u << 8) | (u >> 8);
 }

@@ -6,10 +6,10 @@
  * assembler
  *==========================================================*/
 #include "assembler.h"
-#include "structures/dynamic_array.h"
-#include "structures/hashmap.h"
+#include "../../common/structures/dynamic_array.h"
+#include "../../common/structures/hashmap.h"
 #include "tokenizer.h"
-#include "util/error.h"
+#include "../../common/util/error.h"
 #include <string.h>
 
 typedef struct assembler_ctx {
@@ -271,7 +271,7 @@ static constexpr_t *binop(assembler_t *as, int precedency_level)
 		(prec_t){shiftops,	sizeof shiftops	/ sizeof(int)},
 		(prec_t){andop,		sizeof andop	/ sizeof(int)},
 		(prec_t){xorop,		sizeof xorop	/ sizeof(int)},
-		(prec_t){orop, 		sizeof orop	/ sizeof(int)},
+		(prec_t){orop,		sizeof orop	/ sizeof(int)},
 	};
 
 	constexpr_t *res;
@@ -313,12 +313,12 @@ loop_start:
 		return res;
 }
 
-constexpr_t *expr(assembler_t *as)
+static constexpr_t *expr(assembler_t *as)
 {
 	return binop(as, LOWEST_PRECEDENCY);
 }
 
-void parse_start(assembler_t *as, tk_t t)
+static void parse_start(assembler_t *as, tk_t t)
 {
 	switch (t.type) {
 		case TK_INSTRUCTION:	printf("instruction\n");break;

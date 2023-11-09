@@ -2,7 +2,7 @@
 #include "cpu.h"
 #include "memory.h"
 #include "../../instructions/interface.h"
-#include "util/types.h"
+#include "../../common/util/types.h"
 
 #include <ctype.h>
 #include <stdio.h>

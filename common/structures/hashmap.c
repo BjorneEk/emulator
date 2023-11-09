@@ -219,4 +219,3 @@ void		HMAP_free(hashmap_t **m)
 	free((*m)->buckets);
 	free(*m);
 }
-

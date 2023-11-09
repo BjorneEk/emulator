@@ -9,8 +9,8 @@
 #define _ASSEMBLER_H_
 
 #include "tokenizer.h"
-#include "structures/dynamic_array.h"
-#include "structures/hashmap.h"
+#include "../../common/structures/dynamic_array.h"
+#include "../../common/structures/hashmap.h"
 
 #define ASM_REG_COUNT (5)
 
@@ -39,7 +39,7 @@ typedef struct def {
 	char		*lbl;
 	constexpr_t	*val;
 	bool		ready;
-	dla_t		*refs; // constexpr_t*
+	dla_t		*refs; /* constexpr_t* */
 	tk_t		tk;
 } def_t;
 
@@ -53,7 +53,7 @@ typedef struct constexpr {
 		int		val;
 		def_t		*ref;
 		constexpr_t	*expr;
-		dla_t		*ops; // constexpr_t*
+		dla_t		*ops; /* constexpr_t* */
 	};
 } constexpr_t;
 
@@ -66,9 +66,15 @@ typedef struct section {
 
 typedef struct asm_entry {
 	int type;
+
+	int ins;
+	int addr_mode;
+
 	int size;
 	int rel_addr;
+
 	tk_t token;
+
 	union {
 		struct {
 			constexpr_t *value;

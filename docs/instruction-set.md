@@ -15,7 +15,7 @@ absolute-idx:
 [reg, reg] + #val    - abs-ptr-off, 16-bit val
 
 zero-page:
-[reg]               - zp-ptr,       16-bit val
+[reg]               - ze-ptr,       -
 [reg + #val]        - zp-offset,    16-bit val
 [reg + reg]         - zp-idx,       -
 
@@ -32,7 +32,6 @@ load and store:
 ldr     Rd                  - load register         [im, reg] 0-10
 ldrw    Rdh, Rdl            - load register wide    [im, reg] 10-20
 str     Rd                  - store register        [im, reg]
-cpr     Rd                  - copy register         (im, reg)
 cprp    Rdh, Rdl, Rsh, Rsl  - copy register pair    (implied)
 
 branch and jump:
@@ -42,16 +41,15 @@ bcc                 - branch on carry clear     (relative)
 bcs                 - branch on carry set       (relative)
 brn                 - branch negative           (relative)
 brp                 - branch posetive           (relative)
+bra                 - unconditional branch      (relative)
+
 bbs 4bv, Rs         - branch register bit set   (relative) --- NEW
 bbc 4bv, Rs         - branch register bit clear (relative) --- NEW
-bra                 - unconditional branch      (relative)
+
 lbra                - unconditional long branch (abs, abs-ptr)
 call                - long call to subrutine    (abs, abs-ptr, zp)
 ret                 - return from subrutine     (implied)
 rti                 - return from interrupt     (implied)
-
-adc r0, r1, r3
-adc r0, r1, [#0xFFFFFFFF]
 
 arithmetic and logic:
 adc     Rd, Rs      - add with carry                all
@@ -82,30 +80,135 @@ brk     - halt execution    (implied)
 nop     - no op             (implied)
 
 
+
+addressing modes:
+
+relative:
+|ADDDDDDR|
+|rel-addr|
+width: 1
+
 immediate:
-XXXXXXXX|HHHHLLLL|VVVVVVVV|VVVVVVVV|
-opcode  |Rh || Rl| immediate value |
-pc += 4;
+|VVVVVVVV|VVVVVVVV|
+| immediate value |
+width: 2
 
 register:
-XXXXXXXX|HHHHLLLL|RRRR0000|
-opcode  |Rh || Rl|R  ||   |
-pc += 3;
+|RRRR0000|
+|R  ||   |
+width: 1
 
 absolute:
-XXXXXXXX|HHHHLLLL|VVVVVVVV|VVVVVVVV|VVVVVVVV|VVVVVVVV|
-opcode  |Rh || Rl|           absolute value          |
-pc += 6;
+|VVVVVVVV|VVVVVVVV|VVVVVVVV|VVVVVVVV|
+|           absolute value          |
+width: 4
 
 absolute-pointer:
-XXXXXXXX|HHHHLLLL|RRRRRRRR|
-opcode  |Rh || Rl|Rh || rl|
-pc += 3;
+|RRRhRRRl|
+|Rh || Rl|
+width: 1
 
+absolute-indexed:
+|VVVVVVVV|VVVVVVVV|VVVVVVVV|VVVVVVVV|RRRR0000|
+|           absolute value          |Ri ||   |
+width: 5
 
-bbs 4bv, Rs	- branch register bit set   (relative)
+absolute-pointer-indexed:
+|RRRhRRRl|RRRR0000|
+|Rh || Rl|Ri ||   |
+width: 2
 
-bbs, bbc:
-XXXXXXXX|VVVVRRRR|ADDDDDDR|
-opcode  |4bv | Rl|rel-addr|
-pc += 3;
+absolute-pointer-offset:
+|RRRhRRRl|VVVVVVVV|VVVVVVVV|
+|Rh || Rl|     offset      |
+width: 3
+
+zero-page-pointer:
+|RRRR0000|
+|R  ||   |
+width: 1
+
+zero-page-offset:
+|RRRR0000|VVVVVVVV|VVVVVVVV|
+|R  ||   |     offset      |
+width: 3
+
+zero-page-indexed:
+|RRRRRRRi|
+|R  || Ri|
+width: 1
+
+instruction:
+
+ldr:
+cmp:
+asr:
+lsr:
+lsl:
+not:
+dec:
+inc:
+crb:
+srb:
+|XXXXXXXX|RRRR0000|
+|opcode  |Rd      |
+width: 2
+
+ldrw:
+|XXXXXXXX|RRRhRRRl|
+|opcode  |Rh || Rl|
+width: 2
+
+str:
+|XXXXXXXX|RRRR0000|
+|opcode  |Rd      |
+width: 2
+
+cprp:
+|XXXXXXXX|RRRhRRRl|RRRhRRRl|
+|opcode  |Rdh||Rdl|Rsh||Rsl|
+width: 3
+
+bz:
+bnz:
+bcc:
+bcs:
+brn:
+brp:
+bra:
+lbra:
+call:
+ret:
+rti:
+brk:
+nop:
+|XXXXXXXX|
+|opcode  |
+width: 1
+
+bbs:
+bbc:
+|XXXXXXXX|VVVVRRRR|
+|opcode  |4bv |  R|
+width: 2
+
+adc:
+add:
+sbc:
+sub:
+eor:
+orr:
+and:
+|XXXXXXXX|RRRRRRRR|
+|opcode  |Rd || Rs|
+width: 2
+
+adcw:
+addw:
+sbcw:
+subw:
+decw:
+incw:
+|XXXXXXXX|RRRRRRRR|
+|opcode  |Rdh||Rdl|
+width: 2

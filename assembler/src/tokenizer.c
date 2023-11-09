@@ -9,7 +9,7 @@
 #include "tokenizer.h"
 #include "../../instructions/interface.h"
 #include "file.h"
-#include "util/error.h"
+#include "../../common/util/error.h"
 #include <_ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -304,11 +304,11 @@ static void skip_ws(tokenizer_t *t)
 					pb(t, c);
 					return;
 			}
-		fullline:
+fullline:
 		case ';': // ';' comment
 			skip_until(t, '\n');
 			break;
-		multiline: // /* */ comment
+multiline:// /* */ comment
 			if (!skip_until_chars(t, "*/"))
 				tk_error(pos, 2, "unclosed multiline comment");
 			break;

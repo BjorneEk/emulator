@@ -10,7 +10,7 @@
 #define _TOKENIZER_H_
 
 #include "../../instructions/interface.h"
-#include "util/types.h"
+#include "../../common/util/types.h"
 #include "file.h"
 #include <stdio.h>
 

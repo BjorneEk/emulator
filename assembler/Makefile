@@ -3,10 +3,19 @@ TARGET=assembler
 # Files
 SOURCE_DIR:=src
 INSTRUCTIONS_DIR:=../instructions
+COMMON_DIR:=../common
+
 SOURCE_FILES:=$(wildcard $(SOURCE_DIR)/*.c $(SOURCE_DIR)/*/*.c)
+SOURCE_FILES+=$(wildcard $(INSTRUCTIONS_DIR)/*.c $(INSTRUCTIONS_DIR)/*/*.c)
+SOURCE_FILES+=$(wildcard $(COMMON_DIR)/*.c $(COMMON_DIR)/*/*.c)
+
 HEADER_FILES:=$(wildcard $(SOURCE_DIR)/*.h $(SOURCE_DIR)/*/*.h)
 HEADER_FILES+=$(wildcard $(INSTRUCTIONS_DIR)/*.h $(INSTRUCTIONS_DIR)/*/*.h)
+HEADER_FILES+=$(wildcard $(COMMON_DIR)/*.h $(COMMON_DIR)/*/*.h)
+
 ASSEMB_FILES:=$(wildcard $(SOURCE_DIR)/*.S $(SOURCE_DIR)/*/*.S)
+ASSEMB_FILES+=$(wildcard $(INSTRUCTIONS_DIR)/*.S $(INSTRUCTIONS_DIR)/*/*.S)
+ASSEMB_FILES+=$(wildcard $(COMMON_DIR)/*.S $(COMMON_DIR)/*/*.S)
 
 OBJ:=${SOURCE_FILES:.c=.o}
 OBJ+=${ASSEMB_FILES:.S=.o}
@@ -15,7 +24,7 @@ OBJ+=${ASSEMB_FILES:.S=.o}
 CC:=gcc
 ARCH:=arm64 # make automatic
 OPT:=-g
-CFLAGS:= -I$(SOURCE_DIR) $(OPT) -Wall
+CFLAGS:= -I$(SOURCE_DIR) -I$(COMMON_DIR) -I$(INSTRUCTIONS_DIR) $(OPT)
 LIBS:=
 
 # Assembler

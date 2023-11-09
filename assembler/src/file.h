@@ -9,7 +9,7 @@
 #ifndef _FILE_H_
 #define _FILE_H_
 
-#include "util/types.h"
+#include "../../common/util/types.h"
 #include <stdio.h>
 
 enum file_extensions {
