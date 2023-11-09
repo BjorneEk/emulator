@@ -7,7 +7,7 @@
  *==========================================================*/
 
 #include "tokenizer.h"
-#include "../../instructions/interface.h"
+#include "../../arch/interface.h"
 #include "file.h"
 #include "../../common/util/error.h"
 #include <_ctype.h>

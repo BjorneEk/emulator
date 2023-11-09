@@ -30,8 +30,10 @@ instructions:
 
 load and store:
 ldr     Rd                  - load register         [im, reg] 0-10
+ldrb    Rd                  - load register byte    [im, reg] 0-10
 ldrw    Rdh, Rdl            - load register wide    [im, reg] 10-20
 str     Rd                  - store register        [im, reg]
+strb    Rd                  - store register byte   [im, reg]
 cprp    Rdh, Rdl, Rsh, Rsl  - copy register pair    (implied)
 
 branch and jump:
@@ -141,6 +143,9 @@ width: 1
 instruction:
 
 ldr:
+ldrb:
+str:
+strb:
 cmp:
 asr:
 lsr:
@@ -157,11 +162,6 @@ width: 2
 ldrw:
 |XXXXXXXX|RRRhRRRl|
 |opcode  |Rh || Rl|
-width: 2
-
-str:
-|XXXXXXXX|RRRR0000|
-|opcode  |Rd      |
 width: 2
 
 cprp:

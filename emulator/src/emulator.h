@@ -18,9 +18,7 @@ typedef struct emulator {
 	memory_t *mem;
 } emulator_t;
 
-void init_emulator(emulator_t *em);
-
-u8_t fetch_byte(emulator_t *em);
+emulator_t *new_emulator(cpu_t *cpu, memory_t *mem);;
 
 i32_t execute(emulator_t *em);
 

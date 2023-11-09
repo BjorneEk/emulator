@@ -50,7 +50,8 @@ typedef enum reg_type {
 	X(ZP_OFF)	X(ZP_IDX)
 
 typedef enum addressing_mode {
-	ADDR_MODE_IMMIDIATE = 0,
+	ADDR_MODE_RELATIVE = 0,
+	ADDR_MODE_IMMIDIATE,
 	ADDR_MODE_REG,
 	ADDR_MODE_ABS,
 	ADDR_MODE_ABS_PTR,
@@ -380,8 +381,9 @@ typedef enum instruction_type {
 	INSTR_NULL	// used to extend enum
 } instruction_type_t;
 
-extern int addressing_mode_size[ADDR_MODE_NULL];
-extern int instrution_size[INSTR_NULL];
-extern int endian;
+extern const int addressing_mode_size[ADDR_MODE_NULL];
+extern const int instruction_size[INSTR_NULL];
+extern const int supported_addressing_modes[INSTR_NULL][ADDR_MODE_NULL];
+extern const int endian;
 
 #endif /* _INTERFACE_H_ */

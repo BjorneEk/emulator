@@ -2,7 +2,7 @@ TARGET=emulator
 
 # Files
 SOURCE_DIR:=src
-INSTRUCTIONS_DIR:=../instructions
+INSTRUCTIONS_DIR:=../arch
 COMMON_DIR:=../common
 
 SOURCE_FILES:=$(wildcard $(SOURCE_DIR)/*.c $(SOURCE_DIR)/*/*.c)

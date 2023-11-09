@@ -16,4 +16,6 @@ typedef struct cpu {
 	u32_t pc;
 } cpu_t;
 
+cpu_t *new_cpu();
+
 #endif /* _CPU_H_ */

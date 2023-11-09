@@ -9,7 +9,7 @@
 #ifndef _TOKENIZER_H_
 #define _TOKENIZER_H_
 
-#include "../../instructions/interface.h"
+#include "../../arch/interface.h"
 #include "../../common/util/types.h"
 #include "file.h"
 #include <stdio.h>
