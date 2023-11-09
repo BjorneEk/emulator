@@ -89,9 +89,9 @@ opcode  |Rh || Rl| immediate value |
 pc += 4;
 
 register
-00000000|00000000|00000000|00000000|
-XXXXXXXX|HHHHLLLL|RRRR0000|00000000|
-opcode  |Rh || Rl|R  ||   |00000000|
+00000000|00000000|00000000|
+XXXXXXXX|HHHHLLLL|RRRR0000|
+opcode  |Rh || Rl|R  ||   |
 pc += 3;
 
 absolute
@@ -101,16 +101,16 @@ opcode  |Rh || Rl|           absolute value          |
 pc += 6;
 
 absolute-pointer
-00000000|00000000|00000000|00000000|
-XXXXXXXX|HHHHLLLL|RRRRRRRR|00000000|
-opcode  |Rh || Rl|Rh || rl|00000000|
+00000000|00000000|00000000|
+XXXXXXXX|HHHHLLLL|RRRRRRRR|
+opcode  |Rh || Rl|Rh || rl|
 pc += 3;
 
 
 bbs 4bv, Rs	- branch register bit set   (relative)
 
 bbs, bbc
-00000000|00000000|00000000|00000000|
-XXXXXXXX|VVVVRRRR|ADDDDDDR|00000000|
-opcode  |4bv | Rl|rel-addr|00000000|
+00000000|00000000|00000000|
+XXXXXXXX|VVVVRRRR|ADDDDDDR|
+opcode  |4bv | Rl|rel-addr|
 pc += 3;
