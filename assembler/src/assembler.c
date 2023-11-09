@@ -269,9 +269,9 @@ static constexpr_t *binop(assembler_t *as, int precedency_level)
 		(prec_t){mulops,	sizeof mulops	/ sizeof(int)},
 		(prec_t){addops,	sizeof addops	/ sizeof(int)},
 		(prec_t){shiftops,	sizeof shiftops	/ sizeof(int)},
-		(prec_t){andop,	sizeof andop	/ sizeof(int)},
-		(prec_t){xorop,	sizeof xorop	/ sizeof(int)},
-		(prec_t){orop, 	sizeof orop	/ sizeof(int)},
+		(prec_t){andop,		sizeof andop	/ sizeof(int)},
+		(prec_t){xorop,		sizeof xorop	/ sizeof(int)},
+		(prec_t){orop, 		sizeof orop	/ sizeof(int)},
 	};
 
 	constexpr_t *res;
