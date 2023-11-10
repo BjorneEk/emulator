@@ -175,11 +175,14 @@ i32_t emulator_execute(emulator_t *em)
 	int addr_mode;
 
 	opcode = memory_read_byte(MEM, PC);
+	printf("EXECUTING INSTRUCTION WITH OPCODE: %d\n", opcode);
+	printf("PC = %d\n", PC);
 
 	switch (opcode) {
 		#define SINSTR_LDR(addr_mode) case SINSTR_LDR_##addr_mode :
 		XMACRO_ADDRESSING_MODES(SINSTR_LDR)
-			addr_mode = opcode - INSTR_LDR;
+			addr_mode = opcode - INSTR_LDR + ADDR_MODE_IMMIDIATE;
+			printf("addr_mode = %d\n", addr_mode);
 
 			reg_byte = memory_read_byte(MEM, PC + 1);
 			reg_d = REGS + (reg_byte >> 4);
@@ -209,11 +212,13 @@ i32_t emulator_execute(emulator_t *em)
 
 		case SINSTR_LBRA_ABS:
 		case SINSTR_LBRA_ABS_PTR:
-			addr_mode = opcode - INSTR_LBRA;
+			addr_mode = opcode - INSTR_LBRA + ADDR_MODE_ABS;
+			printf("addr_mode = %d\n", addr_mode);
 
 			PC += instruction_size[INSTR_LBRA];
 
 			addr = addr_from_addr_mode(em, addr_mode);
+			printf("addr = %d\n", addr);
 
 			PC = addr;
 			break;
@@ -241,8 +246,6 @@ i32_t emulator_execute(emulator_t *em)
 		default:
 			printf("UNHANDLED OPCODE: %d\n", opcode);
 	}
-
-	printf("EXECUTED INSTRUCTION WITH OPCODE: %d\n", opcode);
 
 	return 0;
 }

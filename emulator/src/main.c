@@ -28,4 +28,8 @@ int main(int argc, char *argv[])
 	cpu_print(cpu);
 	emulator_execute(em);
 	cpu_print(cpu);
+	emulator_execute(em);
+	cpu_print(cpu);
+	emulator_execute(em);
+	cpu_print(cpu);
 }

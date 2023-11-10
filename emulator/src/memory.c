@@ -2,7 +2,6 @@
 #include "../../common/util/error.h"
 #include "../../arch/interface.h"
 
-#include <arm/endian.h>
 #include <stdlib.h>
 
 memory_t *new_memory()
@@ -78,4 +77,11 @@ void memory_load_test(memory_t *mem)
 {
 	memory_write_byte(mem, 0, SINSTR_LBRA_ABS);
 	memory_write_long(mem, 1, 0x0000FFFF);
+
+	memory_write_byte(mem, 0x0000FFFF, SINSTR_LDR_IMMIDIATE);
+	memory_write_byte(mem, 0x0000FFFF + 1, 0x50);
+	memory_write_word(mem, 0x0000FFFF + 2, 0x6969);
+
+	memory_write_byte(mem, 0x0000FFFF + 4, SINSTR_LBRA_ABS);
+	memory_write_long(mem, 0x0000FFFF + 5, 0);
 }
