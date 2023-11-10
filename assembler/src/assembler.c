@@ -10,6 +10,7 @@
 #include "../../common/structures/hashmap.h"
 #include "tokenizer.h"
 #include "../../common/util/error.h"
+#include <stdbool.h>
 #include <string.h>
 
 typedef struct assembler_ctx {
@@ -26,6 +27,10 @@ int subinstrution_size[SINSTR_NULL + 1] = {1};
 #define PARSE_ERROR(...) do {		\
 	tk_print_error(__VA_ARGS__);	\
 	exit(-1);			\
+	} while(0);
+
+#define PARSE_WARNING(...) do {		\
+	tk_warning(__VA_ARGS__);	\
 	} while(0);
 
 static tk_t next(assembler_t *as)
@@ -68,28 +73,37 @@ static section_t *new_section(tk_t tk)
 
 	res = malloc(sizeof(section_t));
 
-	res->data = DLA_new(sizeof(asm_t*), 10);
-	res->labels = HMAP_new(30, HASH_fnv_1a);
-	res->size = 0;
-	res->tk = tk;
+	res->data	= DLA_new(sizeof(asm_t*), 10);
+	res->labels	= HMAP_new(30, HASH_fnv_1a);
+	res->size	= 0;
+	res->tk		= tk;
+	res->has_raw_data	= false;
 
 	return res;
 }
 
-__attribute__((unused))
-static asm_t *init_instr(tk_t tk, int instype, int *addr, int *regs, constexpr_t *value)
+static asm_t *new_instr(assembler_t *as, tk_t tk)
 {
 	asm_t *res;
+
+	if (as->current_section == NULL)
+		PARSE_ERROR(tk, "instructions need to be placed in sections, define a section before instruction with '.section_name:'");
+
+	if (as->current_section->has_raw_data)
+		PARSE_WARNING(tk, "mixing data and instructions in same section (%s)", as->current_section->tk.str_val);
+
 	res = malloc(sizeof(asm_t));
-	res->token = tk;
-	res->type = instype;
-	res->value = value;
-	res->size = subinstrution_size[instype];
-	res->rel_addr = *addr;
-	*addr += res->size;
-	memmove(res->regs, regs, ASM_REG_COUNT * sizeof(int));
+	DLA_append(as->current_section->data, &res);
+	res->type		= TK_INSTRUCTION;
+	res->instruction	= tk.instype;
+	res->instruction_size	= instruction_size[res->instruction];
+	res->token		= tk;
+	res->rel_addr		= as->current_section->size;
+	res->nregs		= 0;
 	return res;
 }
+
+
 
 static void init_assembler(assembler_t *as, tokenizer_t *t)
 {
@@ -164,6 +178,7 @@ static void add_label_def(assembler_t *as, tk_t tk, int type, constexpr_t *val)
 		l->type	= type;
 		l->tk	= tk;
 		l->val	= val;
+
 		HMAP_add(as->current_section->labels, l->tk.str_val, l->tk.tklen, l);
 		return;
 	}
@@ -224,12 +239,13 @@ static constexpr_t *toplevel(assembler_t *as)
 	else if(tk.type == TK_INTEGER_LITERAL || tk.type == TK_CHARACTER_LITERAL) {
 		res = new_constexpr(tk);
 		res->val = tk.int_val;
+		BUG("\nFOUND LITERAL\n\n");
 		return res;
 	}
 	else if(tk.type == TK_IDENT) {
 		res = new_constexpr(tk);
-		res->type = EXPR_REF;
 		add_label_ref(as, tk, res);
+		BUG("\nFOUND LABEL-REF\n\n");
 		return res;
 	}
 	tk_type_tostring(tk.type, s1);
@@ -246,15 +262,29 @@ static constexpr_t *unary(assembler_t *as)
 		res->expr = unary(as);
 		return res;
 	}
+	pb(as, tk);
 	return toplevel(as);
 
 }
 
-typedef struct precedence_level {
-	const int *op;
+typedef struct const_int_arr {
+	const int *arr;
 	const int len;
-} prec_t;
-#define LOWEST_PRECEDENCY 5
+} const_int_arr_t;
+
+static inline const tpos_t not_a_pos()
+{
+	return (tpos_t){-1, -1, -1, NULL};
+}
+
+static constexpr_t *minus(constexpr_t *e)
+{
+	constexpr_t *res;
+
+	res = new_constexpr((tk_t){'-', 1, .str_val = "generated_negation_token", not_a_pos()});
+	res->expr = e;
+	return res;
+}
 
 static constexpr_t *binop(assembler_t *as, int precedency_level)
 {
@@ -265,34 +295,49 @@ static constexpr_t *binop(assembler_t *as, int precedency_level)
 	static const int xorop[]	= {'^'};
 	static const int orop[]		= {'|'};
 
-	static const prec_t ops[] = {
-		(prec_t){mulops,	sizeof mulops	/ sizeof(int)},
-		(prec_t){addops,	sizeof addops	/ sizeof(int)},
-		(prec_t){shiftops,	sizeof shiftops	/ sizeof(int)},
-		(prec_t){andop,		sizeof andop	/ sizeof(int)},
-		(prec_t){xorop,		sizeof xorop	/ sizeof(int)},
-		(prec_t){orop,		sizeof orop	/ sizeof(int)},
+	static const const_int_arr_t ops[] = {
+		(const_int_arr_t){orop,		sizeof orop	/ sizeof(int)},
+		(const_int_arr_t){xorop,	sizeof xorop	/ sizeof(int)},
+		(const_int_arr_t){andop,	sizeof andop	/ sizeof(int)},
+		(const_int_arr_t){shiftops,	sizeof shiftops	/ sizeof(int)},
+		(const_int_arr_t){addops,	sizeof addops	/ sizeof(int)},
+		(const_int_arr_t){mulops,	sizeof mulops	/ sizeof(int)},
 	};
-
+	#define OPS_LEN (sizeof ops / sizeof(const_int_arr_t))
 	constexpr_t *res;
 	constexpr_t *lhs, *rhs;
+	bool is_subtraction;
 	tk_t tk;
 	int i;
 
-	lhs = precedency_level > 0 ? binop(as, precedency_level - 1) : unary(as);
+	BUG("plev: %i\n", precedency_level);
+	lhs = precedency_level < OPS_LEN - 1 ? binop(as, precedency_level + 1) : unary(as);
 	tk = next(as);
 	for (i = 0; i < ops[precedency_level].len; i++) {
-		if (tk.type == ops[precedency_level].op[i])
+		char s1[100];
+		char s2[100];
+		tk_type_tostring(tk.type, s1);
+		tk_type_tostring(ops[precedency_level].arr[i], s2);
+		BUG("level: %i, ttype: %s (%i), op: %s (%i)\n", precedency_level, s1, tk.type, s2, ops[precedency_level].arr[i]);
+		if (tk.type == ops[precedency_level].arr[i]) {
+			BUG("match\n");
 			goto found_first;
+		}
 	}
+	BUG("done\n");
 	pb(as, tk);
 	return lhs;
 found_first:
 	res = new_op_constexpr(tk);
+	if (tk.type == '-') {
+		res->type = '+';
+		is_subtraction = true;
+	}
 	DLA_append(res->ops, &lhs);
 
 loop_start:
-		rhs = precedency_level > 0 ? binop(as, precedency_level - 1) : unary(as);
+		rhs = precedency_level < OPS_LEN - 1 ? binop(as, precedency_level + 1) : unary(as);
+		rhs = is_subtraction ? minus(rhs) : rhs;
 		DLA_append(res->ops, &rhs);
 
 
@@ -300,26 +345,269 @@ loop_start:
 			goto loop_start;
 
 		tk = next(as);
+		is_subtraction = false;
 		for (i = 0; i < ops[precedency_level].len; i++) {
-			if (tk.type == ops[precedency_level].op[i]) {
+			char s1[100];
+				char s2[100];
+				tk_type_tostring(tk.type, s1);
+				tk_type_tostring(ops[precedency_level].arr[i], s2);
+				BUG("level: %i, ttype: %s (%i), op: %s (%i)\n", precedency_level, s1, tk.type, s2, ops[precedency_level].arr[i]);
+			if (tk.type == ops[precedency_level].arr[i]) {
+				BUG("match\n");
 				lhs = res;
 				res = new_op_constexpr(tk);
+				if (tk.type == '-') {
+					res->type = '+';
+					is_subtraction = true;
+				}
 				DLA_append(res->ops, &lhs);
 				goto loop_start;
 			}
 		}
-
+		BUG("done\n");
 		pb(as, tk);
 		return res;
 }
 
 static constexpr_t *expr(assembler_t *as)
 {
-	return binop(as, LOWEST_PRECEDENCY);
+	constexpr_t *res;
+
+	res = binop(as, 0);
+	print_constexpr(res);
+	return res;
 }
+static const int PATTERN_IMMIDIATE[]	= {EXPRESSION};
+static const int PATTERN_REG[]		= {TK_REGISTER};
+static const int PATTERN_ABS[]		= {'[', EXPRESSION, ']'};
+static const int PATTERN_ABS_PTR[]	= {'[', TK_REGISTER, ',', TK_REGISTER, ']'};
+static const int PATTERN_ABS_IDX[]	= {'[', EXPRESSION, ']', ',', TK_REGISTER};
+static const int PATTERN_ABS_PTR_IDX[]	= {'[', TK_REGISTER, ',', TK_REGISTER, ']', ',', TK_REGISTER};
+static const int PATTERN_ABS_PTR_OFF[]	= {'[', TK_REGISTER, ',', TK_REGISTER, ']', ',', EXPRESSION};
+static const int PATTERN_ZP_PTR[]	= {'[', TK_REGISTER, ']'};
+static const int PATTERN_ZP_OFF[]	= {'[', TK_REGISTER, '+', EXPRESSION, ']'};
+static const int PATTERN_ZP_IDX[]	= {'[', TK_REGISTER, '+', TK_REGISTER, ']'};
+
+static const const_int_arr_t ops[] = {
+	[ADDR_MODE_IMMIDIATE]	= PATTERN_IMMIDIATE,
+	[ADDR_MODE_REG]		= PATTERN_REG,
+	[ADDR_MODE_ABS]		= PATTERN_ABS,
+	[ADDR_MODE_ABS_PTR]	= PATTERN_ABS_PTR,
+	[ADDR_MODE_ABS_IDX]	= PATTERN_ABS_IDX,
+	[ADDR_MODE_ABS_PTR_IDX]	= PATTERN_ABS_PTR_IDX,
+	[ADDR_MODE_ABS_PTR_OFF]	= PATTERN_ABS_PTR_OFF,
+	[ADDR_MODE_ZP_PTR]	= PATTERN_ZP_PTR,
+	[ADDR_MODE_ZP_OFF]	= PATTERN_ZP_OFF,
+	[ADDR_MODE_ZP_IDX]	= PATTERN_ZP_IDX
+};
+
+static void sort_expr_last(int *supported, int len, int depth)
+{
+	int i;
+	int tmp;
+	for (i = 0; i < len - 1; i++) {
+
+		if (ops[supported[i]].arr[depth] == EXPRESSION) {
+			tmp = supported[i];
+			memmove(supported + i, supported + i + 1, ((len - i) - 1) * sizeof(int));
+			supported[len - 1] = tmp;
+		}
+	}
+}
+
+static void addr_mode(assembler_t *as, asm_t *ins, int depth, int *supported, int len)
+{
+	int 	_supported[ADDR_MODE_NULL];
+	int	_len;
+	int	result;
+	tk_t	tk;
+	int	i;
+	char	str[100];
+	bool	found_not_expr;
+	bool	is_expr;
+	bool	reg_set;
+
+	sort_expr_last(supported, len, depth);
+
+	tk		= next(as);
+
+	_len		= 0;
+	found_not_expr	= false;
+	reg_set		= false;
+	is_expr		= false;
+
+	for (i = 0; i < len; i++) if (ops[supported[i]].len > depth) {
+		if (!is_expr && (ops[supported[i]].arr[depth] == tk.type && ops[supported[i]].len == depth - 1)) { // perfect match
+
+			if (tk.type == TK_REGISTER && !reg_set) {
+				ins->regs[ins->nregs++] = tk.reg;
+				reg_set = true;
+			}
+perfect:
+			ins->addr_mode		= supported[i];
+			ins->type		= ins->instruction + ins->addr_mode;
+			ins->addr_mode_size	= addressing_mode_size[ins->addr_mode];
+			addr_mode(as, ins, depth + 1, _supported, _len);
+			return;
+		} else if (!is_expr && (ops[supported[i]].arr[depth] == tk.type)) { // match
+			if (tk.type == TK_REGISTER && !reg_set) {
+				ins->regs[ins->nregs++] = tk.reg;
+				reg_set = true;
+			}
+match:
+			_supported[_len++] = supported[i];
+			found_not_expr = true;
+		} else if (found_not_expr && ops[supported[i]].arr[depth] == EXPRESSION) {
+			break;
+		} else if (ops[supported[i]].arr[depth] == EXPRESSION && ops[supported[i]].len == depth - 1) {
+			if (!is_expr) {
+				pb(as, tk);
+				ins->value = expr(as);
+				is_expr = true;
+			}
+			goto perfect;
+		} else if (ops[supported[i]].arr[depth] == EXPRESSION) {
+			if (!is_expr) {
+				pb(as, tk);
+				ins->value = expr(as);
+				is_expr = true;
+			}
+			goto match;
+		}
+	}
+	if (found_not_expr || is_expr) {
+		addr_mode(as, ins, depth + 1, _supported, _len);
+		return;
+	} else {
+		tk_type_tostring(tk.type, str);
+		PARSE_ERROR(tk, "unexpected instruction argument: ", str);
+	}
+}
+
+static int get_addr_modes(int type, int *supported)
+{
+	int i;
+	int len;
+
+	for (len = i = 0; i < ADDR_MODE_NULL; i++) {
+		if (supported_addressing_modes[type][i] == ADDR_MODE_NULL)
+			return len;
+		supported[len++] = supported_addressing_modes[type][i];
+	}
+	return len;
+}
+
+static int expect_reg(assembler_t *as)
+{
+	tk_t	tk;
+	char	str[100];
+
+	tk = next(as);
+
+	if (tk.type != TK_REGISTER) {
+		tk_type_tostring(tk.type, str);
+		PARSE_ERROR(tk, "Expected register, found: %s", str);
+	}
+	return tk.reg;
+}
+
+static void instr(assembler_t *as, tk_t t)
+{
+	asm_t *ins;
+	int supported[ADDR_MODE_NULL];
+	int supported_len;
+	int i;
+
+	ins = new_instr(as, t);
+
+
+	switch (ins->instruction) {
+		case INSTR_CPRP:
+			ins->regs[ins->nregs++] = expect_reg(as);
+			ins->regs[ins->nregs++] = expect_reg(as);
+			ins->regs[ins->nregs++] = expect_reg(as);
+			ins->regs[ins->nregs++] = expect_reg(as);
+		case INSTR_RET:
+		case INSTR_RTI:
+		case INSTR_BRK:
+		case INSTR_NOP:
+			goto implied;
+		case INSTR_BBS:
+		case INSTR_BBC:
+			ins->bit = expr(as);
+			ins->regs[ins->nregs++] = expect_reg(as);
+		case INSTR_BZ:
+		case INSTR_BNZ:
+		case INSTR_BCC:
+		case INSTR_BCS:
+		case INSTR_BRN:
+		case INSTR_BRP:
+		case INSTR_BRA:
+			goto relative;
+		case INSTR_ADC:
+		case INSTR_ADD:
+		case INSTR_SBC:
+		case INSTR_SUB:
+		case INSTR_EOR:
+		case INSTR_ORR:
+		case INSTR_AND:
+		case INSTR_LDRW:
+		case INSTR_ADCW:
+		case INSTR_ADDW:
+		case INSTR_SBCW:
+		case INSTR_SUBW:
+			ins->regs[ins->nregs++] = expect_reg(as);
+		case INSTR_LDR:
+		case INSTR_LDRB:
+		case INSTR_STR:
+		case INSTR_STRB:
+		case INSTR_CMP:
+		case INSTR_CRB:
+		case INSTR_SRB:
+			ins->regs[ins->nregs++] = expect_reg(as);
+		case INSTR_LBRA:
+		case INSTR_CALL:
+			goto handle_addressing_mode;
+		case INSTR_DECW:
+		case INSTR_INCW:
+			ins->regs[ins->nregs++] = expect_reg(as);
+		case INSTR_ASR:
+		case INSTR_LSR:
+		case INSTR_LSL:
+		case INSTR_NOT:
+		case INSTR_DEC:
+		case INSTR_INC:
+			ins->regs[ins->nregs++] = expect_reg(as);
+			goto implied;
+	}
+
+implied:
+	ins->addr_mode = ADDR_MODE_NULL;
+	ins->addr_mode_size = 0;
+	ins->type = ins->instruction;
+	as->current_section->size += ins->instruction_size;
+	ins->value = expr(as);
+	return;
+
+relative:
+	ins->addr_mode = ADDR_MODE_RELATIVE;
+	ins->addr_mode_size = addressing_mode_size[ADDR_MODE_RELATIVE];
+	ins->type = ins->instruction;
+	as->current_section->size += ins->addr_mode_size + ins->instruction_size;
+	ins->value = expr(as);
+	return;
+
+handle_addressing_mode:
+	supported_len = get_addr_modes(ins->instruction, supported);
+	addr_mode(as, ins, 0, supported, supported_len);
+	as->current_section->size += ins->addr_mode_size + ins->instruction_size;
+	return;
+}
+
 
 static void parse_start(assembler_t *as, tk_t t)
 {
+	char str[100];
 	switch (t.type) {
 		case TK_INSTRUCTION:	printf("instruction\n");break;
 		case TK_GLOBAL:
@@ -330,11 +618,11 @@ static void parse_start(assembler_t *as, tk_t t)
 		case TK_IDENT:
 			if (consume(as, ':')) {
 				add_label_def(as, t, DEF_DEFINED, NULL);
-				break;
+				return;
 			}
 			if (consume(as, '=')) {
 				add_label_def(as, t, DEF_ABSOLUTE, expr(as));
-				break;
+				return;
 			}
 			PARSE_ERROR(t, "Expected ':' or assignment after label");
 			break;
@@ -350,8 +638,8 @@ static void parse_start(assembler_t *as, tk_t t)
 		case TK_I16:		printf("sword\n");break;
 		case TK_U16:		printf("word\n");break;
 		default:
-			tk_print(t);
-			PARSE_ERROR(t, "expected top level token (instruction, global defs, identifyer, section or typename)");
+			tk_type_tostring(t.type, str);
+			PARSE_ERROR(t, "expected top level token (instruction, global defs, identifyer, section or typename), found: %s", str);
 	}
 }
 
@@ -362,9 +650,102 @@ program_t *parse(tokenizer_t *t)
 
 	init_assembler(&as, t);
 
-	while (tk = next(&as), tk.type != TK_NULL)
+	while (tk = next(&as), tk.type != TK_NULL) {
+		BUG("START\n");
 		parse_start(&as, tk);
+		BUG("created\n");
+	}
 	return NULL;
+}
+
+static void print_deftype(def_t *d)
+{
+	switch(d->type) {
+		case DEF_UNDEFINED:	printf("undefined");		break;
+		case DEF_UNDEFINED_REF:	printf("undefined-ref");	break;
+		case DEF_SECTION:	printf("section");		break;
+		case DEF_ABSOLUTE:	printf("absolute");		break;
+		case DEF_DEFINED:	printf("defined");		break;
+	}
+}
+static void _print_constexpr(constexpr_t *exp, char *pre, bool final)
+{
+	char buff[4096];
+
+	printf("%s",pre);
+	strcpy(buff, pre);
+
+	if(final)
+		printf("└───");
+	else
+		printf("├───");
+
+	switch(exp->type) {
+		case TK_INTEGER_LITERAL:
+			printf("─\e[1minteger literal\033[0m: \033[33;1;4m%i\033[0m\n", exp->token.int_val);
+			return;
+		case TK_CHARACTER_LITERAL:
+			printf("─\e[1mcharacter literal\033[0m: \033[33;1;4m'%c'\033[0m\n", exp->token.int_val);
+			return;
+		case TK_IDENT:
+			printf("─\e[1mlabel-ref\033[0m: \033[33;1;4m'%s'\033[0m (\033[34m", exp->token.str_val);
+			print_deftype(exp->ref);
+			printf("\033[0m)\n");
+			return;
+		case '-':
+		case '~':
+			printf("┬(\e[1m%c\033[0m) \033[34m\033[0m\n", exp->type);
+			if(final)
+				strcat(buff, "    ");
+			else
+				strcat(buff, "│   ");
+			_print_constexpr(exp->expr, buff, true);
+			return;
+		case '+':
+		case '*':
+		case '/':
+		case '%':
+		case '&':
+		case '^':
+		case '|':
+			printf("┬(\e[1m%c\033[0m) \033[34m\033[0m\n", exp->type);
+			if(final)
+				strcat(buff, "    ");
+			else
+				strcat(buff, "│   ");
+			FOREACH_DLA(exp->ops, i, constexpr_t*, op, {
+				_print_constexpr(op, buff, i == exp->ops->len - 1);
+			});
+			return;
+		case TK_LSL_OP:
+			printf("┬(\e[1m<<\033[0m) \033[34m\033[0m\n");
+			if(final)
+				strcat(buff, "    ");
+			else
+				strcat(buff, "│   ");
+			FOREACH_DLA(exp->ops, i, constexpr_t*, op, {
+				_print_constexpr(op, buff, i == exp->ops->len - 1);
+			});
+			return;
+		case TK_LSR_OP:
+			printf("┬(\e[1m>>\033[0m) \033[34m\033[0m\n");
+			if(final)
+				strcat(buff, "    ");
+			else
+				strcat(buff, "│   ");
+			FOREACH_DLA(exp->ops, i, constexpr_t*, op, {
+				_print_constexpr(op, buff, i == exp->ops->len - 1);
+			});
+			return;
+		default:
+			printf("─\e[1minvalid-expression\033[0m\n");
+
+	}
+}
+
+void print_constexpr(constexpr_t *ex)
+{
+	_print_constexpr(ex, "", true);
 }
 
 // absolute:

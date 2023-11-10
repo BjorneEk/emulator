@@ -70,9 +70,15 @@ tk_t		tk_next(tokenizer_t *tokenizer);
 tk_t		tk_prev(tokenizer_t *tokenizer);
 void		tk_rev(tokenizer_t *tokenizer, tk_t t);
 void		tk_close(tokenizer_t **tokenizer);
+
+void		tk_warning(tk_t tk, const char *fmt, ...);
 void		tk_error(tpos_t p, int tklen, const char *fmt, ...);
 void		tk_print_error(tk_t tk, const char *fmt, ...);
-void		tk_print(tk_t t);
+
+void		tk_tostring(tk_t t, char *res);
 void		tk_type_tostring(int t, char *res);
+void		tk_print(tk_t t);
+void		tk_debug(tk_t t);
+
 
 #endif /* _TOKENIZER_H_ */

@@ -26,10 +26,7 @@ enum parser_types {
 	DEF_ABSOLUTE,
 	DEF_DEFINED,
 
-	EXPR_REF,
-	EXPR_ABS_REF,
-	EXPR_VAL4,
-	EXPR_VAL32
+	EXPRESSION
 };
 typedef struct constexpr constexpr_t;
 
@@ -58,27 +55,30 @@ typedef struct constexpr {
 } constexpr_t;
 
 typedef struct section {
-	dla_t		*data;
+	dla_t		*data;	/* asm_t* */
 	hashmap_t	*labels;
 	int		size;
 	tk_t		tk;
+	bool		has_raw_data;
 } section_t;
 
 typedef struct asm_entry {
 	int type;
 
-	int ins;
+	int instruction;
 	int addr_mode;
 
-	int size;
+	int instruction_size;
+	int addr_mode_size;
 	int rel_addr;
 
 	tk_t token;
-
+	constexpr_t *bit;
 	union {
 		struct {
 			constexpr_t *value;
 			int regs[ASM_REG_COUNT];
+			int nregs;
 		};
 
 		union {
@@ -98,6 +98,7 @@ typedef struct program {
 } program_t;
 
 
-program_t *parse(tokenizer_t *t);
+void		print_constexpr(constexpr_t *ex);
+program_t	*parse(tokenizer_t *t);
 
 #endif /* _ASSEMBLER_H_ */

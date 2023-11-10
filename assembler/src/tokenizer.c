@@ -70,7 +70,13 @@ static tk_t	tk(tokenizer_t *t, tpos_t p, int type)
 	res.tklen = 1;
 	return res;
 }
-
+static tk_t	tglob(tokenizer_t *t, tpos_t p)
+{
+	tk_t res;
+	res = tk(t, p, TK_GLOBAL);
+	res.tklen = 6;
+	return res;
+}
 static tk_t	tins(tokenizer_t *t, tpos_t p, int instype)
 {
 	tk_t res;
@@ -125,9 +131,12 @@ static tk_t	tint(tokenizer_t *t, tpos_t p, int type, int val)
 	res.tklen = 1;
 	return res;
 }
-static tk_t	tintlit(tokenizer_t *t, tpos_t p, int val)
+static tk_t	tintlit(tokenizer_t *t, tpos_t p, int val, int tklen)
 {
-	return tint(t, p, TK_INTEGER_LITERAL, val);
+	tk_t res;
+	res = tint(t, p, TK_INTEGER_LITERAL, val);
+	res.tklen = tklen;
+	return res;
 }
 static tk_t	tcharlit(tokenizer_t *t, tpos_t p, int val)
 {
@@ -219,6 +228,11 @@ static void print_debug_lines(FILE *f, tpos_t tpos, int tklen)
 	char tok[1024];
 	int lc;
 
+	if (tpos.line == -1) {
+		puts("generated token");
+		return;
+	}
+
 	org = fgetpos(tpos.file->fp, &org);
 
 	fsetpos(tpos.file->fp, &tpos.prevline_pos);
@@ -233,19 +247,19 @@ static void print_debug_lines(FILE *f, tpos_t tpos, int tklen)
 		l_[tpos.column] = '\0';
 		strncpy(tok, l1 + tpos.column, tklen);
 		tok[tklen] = '\0';
-		fprintf(f, "\033[32m\033[1m%5i\033[0m \033[1m|\033[0m %s\033[31;1;4m%s\033[0m%s\033[32m", tpos.line + 1, l_, tok, l1 + tpos.column + tklen);
-		fprintf(f, "\033[32m\033[1m%5i\033[0m \033[1m|\033[0m %s", tpos.line + 2, l2);
+		fprintf(f, "\033[32m\033[1m%5i\033[0m \033[1m│\033[0m %s\033[31;1;4m%s\033[0m%s\033[32m", tpos.line + 1, l_, tok, l1 + tpos.column + tklen);
+		fprintf(f, "\033[32m\033[1m%5i\033[0m \033[1m│\033[0m %s", tpos.line + 2, l2);
 	} else {
 		strncpy(l_, l2, tpos.column);
 		l_[tpos.column] = '\0';
 		strncpy(tok, l2 + tpos.column, tklen);
 		tok[tklen] = '\0';
-		fprintf(f, "\033[32m\033[1m%5i\033[0m \033[1m|\033[0m %s", tpos.line, l1);
-		fprintf(f, "\033[32m\033[1m%5i\033[0m \033[1m|\033[0m %s\033[31;1;4m%s\033[0m%s\033[32m", tpos.line + 1, l_, tok, l2 + tpos.column + tklen);
+		fprintf(f, "\033[32m\033[1m%5i\033[0m \033[1m│\033[0m %s", tpos.line, l1);
+		fprintf(f, "\033[32m\033[1m%5i\033[0m \033[1m│\033[0m %s\033[31;1;4m%s\033[0m%s\033[32m", tpos.line + 1, l_, tok, l2 + tpos.column + tklen);
 	}
 
 	if (lc == 3)
-		printf("\033[32m\033[1m%5i\033[0m \033[1m|\033[0m %s\n", tpos.line + tpos.line == 0 ? 3 : 2, l3);
+		printf("\033[32m\033[1m%5i\033[0m \033[1m│\033[0m %s\n", tpos.line + ((tpos.line == 0) ? 3 : 2), l3);
 	fsetpos(tpos.file->fp, &org);
 	return;
 }
@@ -260,6 +274,7 @@ void tk_error(tpos_t p, int tklen, const char *restrict fmt, ...)
 	print_debug_lines(stderr, p, tklen);
 	exit(-1);
 }
+
 void tk_print_error(tk_t tk, const char *restrict fmt, ...)
 {
 	va_list args;
@@ -270,12 +285,62 @@ void tk_print_error(tk_t tk, const char *restrict fmt, ...)
 	print_debug_lines(stderr, tk.debug, tk.tklen);
 }
 
+void tk_warning(tk_t tk, const char *restrict fmt, ...)
+{
+	va_list args;
+
+	va_start(args, fmt);
+	vwarn_custom("Warning", fmt, args);
+	fprintf(stderr, "In file: \033[1m%s\033[0m, line: \033[1m%i\033[0m, col: \033[1m%i\033[0m\n", tk.debug.file->filename, tk.debug.line + 1, tk.debug.column + 1);
+	print_debug_lines(stderr, tk.debug, tk.tklen);
+}
+
 bool is_ws(i32_t c)
 {
 	return c == ' '
 		|| c == '\t'
 		|| c == '\r'
 		|| c == '\f';
+}
+static void line_comment(tokenizer_t *t)
+{
+	int c;
+
+	c = next(t);
+	incr_pos(t, c);
+
+	if (c == '\n')
+		return;
+	if (c == EOF) {
+		--t->column;
+		pb(t, c);
+		return;
+	}
+	line_comment(t);
+}
+static void skip_ws(tokenizer_t *t);
+
+static void multiline_comment(tokenizer_t *t, tpos_t prev_pos)
+{
+	int c, c1;
+	tpos_t pos;
+
+	skip_ws(t);
+	c = next(t);
+	++t->column;
+	pos = tpos(t);
+
+	if (c == '*') {
+		c1 = next(t);
+		++t->column;
+		if (c1 == '/')
+			return;
+	}
+
+	if (c == EOF)
+		tk_error(prev_pos, 2, "unclosed multiline comment");
+
+	multiline_comment(t, prev_pos);
 }
 
 static void skip_ws(tokenizer_t *t)
@@ -294,23 +359,24 @@ static void skip_ws(tokenizer_t *t)
 		case '\t':
 		case ' ':
 			skip_ws(t);
-			break;
+			return;
 		case '/': // '//' comment
+			++t->column;
 			switch (c1 = next(t)) {
-				case '*': goto multiline;
-				case '/': goto fullline;
+				case '*':
+					multiline_comment(t, pos);
+					return;
+				case '/':
+					line_comment(t);
+					return;
 				default:
+					t->column -= 2;
 					pb(t, c1);
 					pb(t, c);
 					return;
 			}
-fullline:
 		case ';': // ';' comment
-			skip_until(t, '\n');
-			break;
-multiline:// /* */ comment
-			if (!skip_until_chars(t, "*/"))
-				tk_error(pos, 2, "unclosed multiline comment");
+			line_comment(t);
 			break;
 		default:
 			--t->column;
@@ -370,6 +436,7 @@ static int tk_instr_rec(tokenizer_t *t, char **rs, char *strb, struct insmap_kvp
 		strb_[d] = c;
 		strb_[d + 1] = '\0';
 	} else {
+		--t->column;
 		pb(t, c);
 	}
 
@@ -409,19 +476,23 @@ static bool tk_reg(tokenizer_t *t, tk_t *tok)
 	++t->column;
 	switch(c) {
 		case 'p':
-			switch(peak(t)) {
+			switch(c1 = next(t)) {
 				case 's':
 					rn = REG_PROCESSOR_STATUS;
+					++t->column;
 					goto found;
 				case 'c':
 					rn = REG_PROGRAM_COUNTER_L;
+					++t->column;
 					goto found;
 				default:
+					pb(t, c1);
 					goto not_found;
 			}
 		case 's':
 			if((c1 = next(t)) == 'p') {
 				rn = REG_STACK_POINTER;
+				++t->column;
 				goto found;
 			}
 			pb(t, c1);
@@ -429,6 +500,7 @@ static bool tk_reg(tokenizer_t *t, tk_t *tok)
 		case 'r':
 		case 'b':
 			if(isdigit(c1 = next(t)) && (rn = digittoint(c1)) >= 0 && rn <= 11) {
+				++t->column;
 				goto found;
 			}
 			pb(t, c1);
@@ -498,6 +570,7 @@ static bool isoctal(char c)
 {
 	return '0' <= c && c <= '7';
 }
+
 static int hex(tokenizer_t *t, tpos_t p, char c)
 {
 	if ('0' <= c && c <= '9')
@@ -617,73 +690,83 @@ char *parse_strlit(tokenizer_t *t, tpos_t p)
 	return res;
 }
 
-u64_t read_hex(tokenizer_t *t, tpos_t p)
+u64_t read_hex(tokenizer_t *t, tpos_t p, int *res)
 {
-	u64_t res;
+	u64_t tklen;
 	int c;
-	res = 0;
+
+	tklen = t->column;
+	*res = 0;
+
 	while(isxdigit(c = next(t)) || c == '_') {
-		--t->column;
+		++t->column;
 		if (c != '_')
-			res = res * 16 + hex(t, p, c);
+			*res = *res * 16 + hex(t, p, c);
 	}
-	--t->column;
 	pb(t, c);
-	return res;
+	return t->column - tklen;
 }
 
 
-u64_t read_bin(tokenizer_t *t)
+u64_t read_bin(tokenizer_t *t, int *res)
 {
-	u64_t res;
+	u64_t tklen;
 	int c;
 
-	res = 0;
+	tklen = t->column;
+	*res = 0;
+
 	while(((c = next(t)) == '1' || c == '0') || c == '_') {
-		--t->column;
+		++t->column;
 		if (c != '_')
-			res = res * 2 + c - '0';
+			*res = *res * 2 + c - '0';
 	}
-	--t->column;
 	pb(t, c);
-	return res;
+	return t->column - tklen;
 }
 
-u64_t read_int(tokenizer_t *t)
+u64_t read_int(tokenizer_t *t, int *res)
 {
-	u64_t res;
+	u64_t tklen;
 	int c;
 
-	res = 0;
+	tklen = t->column;
+	*res = 0;
+
 	while(isdigit(c = next(t)) || c == '_') {
-		--t->column;
+		++t->column;
 		if (c != '_')
-			res = res * 10 + c - '0';
+			*res = *res * 10 + c - '0';
 	}
-	--t->column;
 	pb(t, c);
-	return res;
+	return t->column - tklen;
 }
 
-static int parse_intlit(tokenizer_t *t, tpos_t p)
+static int parse_intlit(tokenizer_t *t, tpos_t p, int *res)
 {
 	char c, pref;
+	int len;
 	c = next(t);
 	++t->column;
+
 	if(c == '0') {
 		pref = next(t);
 		if(pref == 'X' || pref == 'x') {
 			++t->column;
-			return read_hex(t, p);
+			return read_hex(t, p, res);
 		} else if(pref == 'b' || pref == 'B') {
 			++t->column;
-			return read_bin(t);
+			return read_bin(t, res);
 		}
 		pb(t, pref);
+	} else if (c == '-') {
+		len = read_int(t, res) + 1;
+		*res = -(*res);
+		return len;
 	}
 	--t->column;
 	pb(t, c);
-	return read_int(t);
+	return read_int(t, res);
 }
 
 static char *parse_ident(tokenizer_t *t, tpos_t p, char *head)
@@ -700,7 +783,7 @@ static char *parse_ident(tokenizer_t *t, tpos_t p, char *head)
 		goto read;
 	}
 
-	len_ = len = strlen(head) + 1;
+	len_ = len = strlen(head);
 	strcpy(buffer, head);
 
 	if (!is_ident_begin(buffer[0]))
@@ -719,24 +802,29 @@ static char *parse_ident(tokenizer_t *t, tpos_t p, char *head)
 	if (undo)
 		goto end;
 read:
-	while(is_ident(buffer[len++] = next(t)) && len < MAX_IDENT)
+	do {
 		++t->column;
-	pb(t, buffer[len-1]);
-	--t->column;
+	} while(is_ident(buffer[len++] = next(t)) && len < MAX_IDENT);
+
+	if (len < MAX_IDENT) {
+		pb(t, buffer[len-1]);
+		--t->column;
+	}
 end:
 	res = malloc(len * sizeof(char));
-	memcpy(res, buffer, len-1);
+	strncpy(res, buffer, len - 1);
 
-	res[len-1] = '\0';
-
+	res[len - 1] = '\0';
 	return res;
 }
 const char *SIMPLE_TOK = "*%&()[]=+|~-,:^";
 
-tk_t		tk_next(tokenizer_t *t)
+tk_t		_tk_next(tokenizer_t *t)
 {
 	int c;
-	int charlit;
+	int char_literal;
+	int int_literal;
+	int tklen;
 	tk_t res;
 	char *ifnot = NULL;
 	tpos_t pos;
@@ -752,12 +840,12 @@ tk_t		tk_next(tokenizer_t *t)
 		skip_ws(t);
 	} while(skip_newline(t));
 
+
 	pos = tpos(t);
 	c = next(t);
 	++t->column;
 	if (strchr(SIMPLE_TOK, c))
 		return tk(t, pos, c);
-
 	switch (c) {
 		case '<':
 			MATCH_("<")	return tk(t, pos, TK_LSL_OP);
@@ -780,31 +868,42 @@ tk_t		tk_next(tokenizer_t *t)
 			MATCH("string")	return tk(t, pos, TK_CHAR);
 			goto base;
 		case '.':
-			MATCH("global")	return tk(t, pos, TK_GLOBAL);
+			MATCH("global")	return tglob(t, pos);
 			return tsection(t, pos, parse_ident(t, pos, NULL));
 		case '"':
 			return tstrlit(t, pos, parse_strlit(t, pos));
 		case '\'':
-			charlit = next_charlit(t);
+			char_literal = next_charlit(t);
 			if (next(t) != '\'')
-				tk_error(pos, 3, "Unclosed character literal: \033[32;1;4m\'%c\033[0m", charlit);
-			return tcharlit(t, pos, charlit);
+				tk_error(pos, 3, "Unclosed character literal: \033[32;1;4m\'%c\033[0m", char_literal);
+			return tcharlit(t, pos, char_literal);
 		case EOF:
 			return tk(t, pos, TK_NULL);
 		case '#':
-			return tintlit(t, pos, parse_intlit(t, pos));
+			tklen = parse_intlit(t, pos, &int_literal);
+			return tintlit(t, pos, int_literal, tklen + 1);
 base:		default:
 		--t->column;
 		pb(t, c);
+
 		if (tk_reg(t, &res))
 			return res;
 		if (tk_instr(t, &ifnot, &res))
 			return res;
 		if(is_ident_begin(ifnot[0]))
 			return tident(t, pos, parse_ident(t, pos, ifnot));
-		tk_error(pos, 1, "Unexpected token '%c'", peak(t));
+
+		tk_error(pos, 1, "Unexpected token '%c' (%i)", c, c);
 	}
 	return tk(t, pos, c);
+}
+tk_t		tk_next(tokenizer_t *t)
+{
+	tk_t res;
+
+	res = _tk_next(t);
+	tk_debug(res);
+	return res;
 }
 
 tokenizer_t	*new_tokenizer(const char *const filename)
@@ -835,11 +934,17 @@ tk_t		tk_prev(tokenizer_t *t)
 
 void		tk_close(tokenizer_t **tokenizer);
 
-void tk_rev(tokenizer_t *tk, tk_t t)
+void _tk_rev(tokenizer_t *tk, tk_t t)
 {
 	ASSERT_(!tk->has_pb, "cannot reverse tokenizer twice");
 	tk->has_pb = true;
 	tk->pb = t;
+}
+void tk_rev(tokenizer_t *tk, tk_t t)
+{
+	printf("Putback: ");
+	tk_print(t);
+	_tk_rev(tk, t);
 }
 #define XMACRO_SIMPLE_TOK_(X)				\
 	X(LSR_OP)		X(LSL_OP)		\
@@ -867,64 +972,83 @@ void tk_type_tostring(int t, char *res)
 			sprintf(res, "register");
 			break;
 		case TK_INTEGER_LITERAL:
-			printf("integer-literal");
+			sprintf(res, "integer-literal");
 			break;
 		case TK_CHARACTER_LITERAL:
-			printf("character-literal");
+			sprintf(res, "character-literal");
 			break;
 		case TK_STRING_LITERAL:
-			printf("string-literal");
+			sprintf(res, "string-literal");
 			break;
 		case TK_NULL:
-			printf("EOF");
+			sprintf(res, "EOF");
 			break;
 		default:
-			printf("'%c'", t);
+			sprintf(res, "'%c'", t);
 	}
 	for (;*res != '\0'; res++)
 		*res = tolower(*res);
 }
 
-void tk_print(tk_t t)
+void tk_tostring(tk_t t, char *res)
 {
+	char typestr[100];
+	char valstr[4096];
+	tk_type_tostring(t.type, typestr);
 	switch(t.type) {
-	#define INSTR_CASE(name) case TK_##name : printf("tok:		%s\n", #name); break;
+	#define INSTR_CASE(name) case TK_##name : sprintf(valstr, "%s", #name); break;
 		XMACRO_SIMPLE_TOK_(INSTR_CASE)
 	#undef INSTR_CASE
 
 		case TK_INSTRUCTION:
 			switch(t.instype) {
-			#define INSTR_CASE(name) case INSTR_##name : printf("ins:		%s\n", #name); break;
+			#define INSTR_CASE(name) case INSTR_##name : sprintf(valstr, "%s", #name); break;
 				XMACRO_INSTRUCTIONS(INSTR_CASE)
 			#undef INSTR_CASE
 			}
 			break;
-		case TK_SECTION:
-			printf("section:	%s\n", t.str_val);
-			break;
 		case TK_IDENT:
-			printf("ident:		%s\n", t.str_val);
+		case TK_SECTION:
+			sprintf(valstr, "%s", t.str_val);
 			break;
 		case TK_REGISTER:
 			switch (t.reg) {
-			#define REG_CASE(rname) case REG_##rname : printf("reg:		%s\n", #rname); break;
+			#define REG_CASE(rname) case REG_##rname : sprintf(valstr, "%s", #rname); break;
 				XMACRO_REGISTER(REG_CASE)
 			#undef REG_CASE
 			}
 			break;
 		case TK_INTEGER_LITERAL:
-			printf("intlit:		%i\n", t.int_val);
+			sprintf(valstr, "%i", t.int_val);
 			break;
 		case TK_CHARACTER_LITERAL:
-			printf("chlit:		'%c'\n", (int)t.int_val);
+			sprintf(valstr, "'%c'", (int)t.int_val);
 			break;
 		case TK_STRING_LITERAL:
-			printf("strlit:		\"%s\"\n", t.str_val);
+			sprintf(valstr, "\"%s\"", t.str_val);
 			break;
 		case TK_NULL:
-			printf("tok:		EOF\n");
+			sprintf(valstr, "EOF");
 			break;
 		default:
-			printf("tok:		'%c'\n", t.type);
+			sprintf(res, "Token: %s", typestr);
+			return;
 	}
+	sprintf(res, "Token: %s (%s)", typestr, valstr);
+}
+
+void tk_debug(tk_t t)
+{
+	char str[4096];
+	tk_tostring(t, str);
+
+	printf("%s, tklen: %i, file: %s, line: %i, col: %i\n", str,
+	t.tklen, t.debug.file->filename, t.debug.line + 1, t.debug.column + 1);
+}
+
+void tk_print(tk_t t)
+{
+	char str[4096];
+	tk_tostring(t, str);
+	puts(str);
 }
