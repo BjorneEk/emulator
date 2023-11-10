@@ -11,7 +11,9 @@
 #include "tokenizer.h"
 #include "../../common/util/error.h"
 #include <stdbool.h>
+#include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
 typedef struct assembler_ctx {
 	dla_t		*globals;	/* def_t*		*/
@@ -21,8 +23,6 @@ typedef struct assembler_ctx {
 	int		slen;
 	tokenizer_t	*tknz;
 } assembler_t;
-
-int subinstrution_size[SINSTR_NULL + 1] = {1};
 
 #define PARSE_ERROR(...) do {		\
 	tk_print_error(__VA_ARGS__);	\
@@ -99,6 +99,7 @@ static asm_t *new_instr(assembler_t *as, tk_t tk)
 	res->instruction_size	= instruction_size[res->instruction];
 	res->token		= tk;
 	res->rel_addr		= as->current_section->size;
+	res->addr_mode		= -1;
 	res->nregs		= 0;
 	return res;
 }
@@ -310,21 +311,21 @@ static constexpr_t *binop(assembler_t *as, int precedency_level)
 	tk_t tk;
 	int i;
 
-	BUG("plev: %i\n", precedency_level);
+//	BUG("plev: %i\n", precedency_level);
 	lhs = precedency_level < OPS_LEN - 1 ? binop(as, precedency_level + 1) : unary(as);
 	tk = next(as);
 	for (i = 0; i < ops[precedency_level].len; i++) {
-		char s1[100];
-		char s2[100];
-		tk_type_tostring(tk.type, s1);
-		tk_type_tostring(ops[precedency_level].arr[i], s2);
-		BUG("level: %i, ttype: %s (%i), op: %s (%i)\n", precedency_level, s1, tk.type, s2, ops[precedency_level].arr[i]);
+//		char s1[100];
+//		char s2[100];
+//		tk_type_tostring(tk.type, s1);
+//		tk_type_tostring(ops[precedency_level].arr[i], s2);
+//		BUG("level: %i, ttype: %s (%i), op: %s (%i)\n", precedency_level, s1, tk.type, s2, ops[precedency_level].arr[i]);
 		if (tk.type == ops[precedency_level].arr[i]) {
-			BUG("match\n");
+//			BUG("match\n");
 			goto found_first;
 		}
 	}
-	BUG("done\n");
+//	BUG("done\n");
 	pb(as, tk);
 	return lhs;
 found_first:
@@ -347,13 +348,13 @@ loop_start:
 		tk = next(as);
 		is_subtraction = false;
 		for (i = 0; i < ops[precedency_level].len; i++) {
-			char s1[100];
-				char s2[100];
-				tk_type_tostring(tk.type, s1);
-				tk_type_tostring(ops[precedency_level].arr[i], s2);
-				BUG("level: %i, ttype: %s (%i), op: %s (%i)\n", precedency_level, s1, tk.type, s2, ops[precedency_level].arr[i]);
+//			char s1[100];
+//				char s2[100];
+//				tk_type_tostring(tk.type, s1);
+//				tk_type_tostring(ops[precedency_level].arr[i], s2);
+//				BUG("level: %i, ttype: %s (%i), op: %s (%i)\n", precedency_level, s1, tk.type, s2, ops[precedency_level].arr[i]);
 			if (tk.type == ops[precedency_level].arr[i]) {
-				BUG("match\n");
+//				BUG("match\n");
 				lhs = res;
 				res = new_op_constexpr(tk);
 				if (tk.type == '-') {
@@ -364,19 +365,16 @@ loop_start:
 				goto loop_start;
 			}
 		}
-		BUG("done\n");
+//		BUG("done\n");
 		pb(as, tk);
 		return res;
 }
 
 static constexpr_t *expr(assembler_t *as)
 {
-	constexpr_t *res;
-
-	res = binop(as, 0);
-	print_constexpr(res);
-	return res;
+	return binop(as, 0);
 }
+
 static const int PATTERN_IMMIDIATE[]	= {EXPRESSION};
 static const int PATTERN_REG[]		= {TK_REGISTER};
 static const int PATTERN_ABS[]		= {'[', EXPRESSION, ']'};
@@ -389,16 +387,16 @@ static const int PATTERN_ZP_OFF[]	= {'[', TK_REGISTER, '+', EXPRESSION, ']'};
 static const int PATTERN_ZP_IDX[]	= {'[', TK_REGISTER, '+', TK_REGISTER, ']'};
 
 static const const_int_arr_t ops[] = {
-	[ADDR_MODE_IMMIDIATE]	= PATTERN_IMMIDIATE,
-	[ADDR_MODE_REG]		= PATTERN_REG,
-	[ADDR_MODE_ABS]		= PATTERN_ABS,
-	[ADDR_MODE_ABS_PTR]	= PATTERN_ABS_PTR,
-	[ADDR_MODE_ABS_IDX]	= PATTERN_ABS_IDX,
-	[ADDR_MODE_ABS_PTR_IDX]	= PATTERN_ABS_PTR_IDX,
-	[ADDR_MODE_ABS_PTR_OFF]	= PATTERN_ABS_PTR_OFF,
-	[ADDR_MODE_ZP_PTR]	= PATTERN_ZP_PTR,
-	[ADDR_MODE_ZP_OFF]	= PATTERN_ZP_OFF,
-	[ADDR_MODE_ZP_IDX]	= PATTERN_ZP_IDX
+	[ADDR_MODE_IMMIDIATE]	= (const_int_arr_t){PATTERN_IMMIDIATE,		sizeof PATTERN_IMMIDIATE	/ sizeof(int)},
+	[ADDR_MODE_REG]		= (const_int_arr_t){PATTERN_REG,		sizeof PATTERN_REG		/ sizeof(int)},
+	[ADDR_MODE_ABS]		= (const_int_arr_t){PATTERN_ABS,		sizeof PATTERN_ABS		/ sizeof(int)},
+	[ADDR_MODE_ABS_PTR]	= (const_int_arr_t){PATTERN_ABS_PTR,		sizeof PATTERN_ABS_PTR		/ sizeof(int)},
+	[ADDR_MODE_ABS_IDX]	= (const_int_arr_t){PATTERN_ABS_IDX,		sizeof PATTERN_ABS_IDX		/ sizeof(int)},
+	[ADDR_MODE_ABS_PTR_IDX]	= (const_int_arr_t){PATTERN_ABS_PTR_IDX,	sizeof PATTERN_ABS_PTR_IDX	/ sizeof(int)},
+	[ADDR_MODE_ABS_PTR_OFF]	= (const_int_arr_t){PATTERN_ABS_PTR_OFF,	sizeof PATTERN_ABS_PTR_OFF	/ sizeof(int)},
+	[ADDR_MODE_ZP_PTR]	= (const_int_arr_t){PATTERN_ZP_PTR,		sizeof PATTERN_ZP_PTR		/ sizeof(int)},
+	[ADDR_MODE_ZP_OFF]	= (const_int_arr_t){PATTERN_ZP_OFF,		sizeof PATTERN_ZP_OFF		/ sizeof(int)},
+	[ADDR_MODE_ZP_IDX]	= (const_int_arr_t){PATTERN_ZP_IDX,		sizeof PATTERN_ZP_IDX		/ sizeof(int)}
 };
 
 static void sort_expr_last(int *supported, int len, int depth)
@@ -414,6 +412,7 @@ static void sort_expr_last(int *supported, int len, int depth)
 		}
 	}
 }
+static void print_instr(asm_t *ins);
 
 static void addr_mode(assembler_t *as, asm_t *ins, int depth, int *supported, int len)
 {
@@ -430,13 +429,16 @@ static void addr_mode(assembler_t *as, asm_t *ins, int depth, int *supported, in
 	sort_expr_last(supported, len, depth);
 
 	tk		= next(as);
-
 	_len		= 0;
 	found_not_expr	= false;
 	reg_set		= false;
 	is_expr		= false;
-
+	BUG("len: %i\n", len);
 	for (i = 0; i < len; i++) if (ops[supported[i]].len > depth) {
+		char	str_[100];
+		tk_type_tostring(tk.type, str);
+		tk_type_tostring(ops[supported[i]].arr[depth], str_);
+		BUG("expect: %s, %s\n", str_, str);
 		if (!is_expr && (ops[supported[i]].arr[depth] == tk.type && ops[supported[i]].len == depth - 1)) { // perfect match
 
 			if (tk.type == TK_REGISTER && !reg_set) {
@@ -444,6 +446,8 @@ static void addr_mode(assembler_t *as, asm_t *ins, int depth, int *supported, in
 				reg_set = true;
 			}
 perfect:
+			BUG("PERFECT ");
+			print_instr(ins);
 			ins->addr_mode		= supported[i];
 			ins->type		= ins->instruction + ins->addr_mode;
 			ins->addr_mode_size	= addressing_mode_size[ins->addr_mode];
@@ -455,6 +459,8 @@ perfect:
 				reg_set = true;
 			}
 match:
+			BUG("MATCH ");
+			print_instr(ins);
 			_supported[_len++] = supported[i];
 			found_not_expr = true;
 		} else if (found_not_expr && ops[supported[i]].arr[depth] == EXPRESSION) {
@@ -475,10 +481,10 @@ match:
 			goto match;
 		}
 	}
-	if (found_not_expr || is_expr) {
+	if (_len > 0) {
 		addr_mode(as, ins, depth + 1, _supported, _len);
 		return;
-	} else {
+	} else if(ins->addr_mode == -1) {
 		tk_type_tostring(tk.type, str);
 		PARSE_ERROR(tk, "unexpected instruction argument: ", str);
 	}
@@ -497,7 +503,7 @@ static int get_addr_modes(int type, int *supported)
 	return len;
 }
 
-static int expect_reg(assembler_t *as)
+static int expect_reg(assembler_t *as, bool trailing_comma)
 {
 	tk_t	tk;
 	char	str[100];
@@ -508,10 +514,13 @@ static int expect_reg(assembler_t *as)
 		tk_type_tostring(tk.type, str);
 		PARSE_ERROR(tk, "Expected register, found: %s", str);
 	}
+	if (trailing_comma) {
+		expect(as, tk, ',');
+	}
 	return tk.reg;
 }
 
-static void instr(assembler_t *as, tk_t t)
+static asm_t *instr(assembler_t *as, tk_t t)
 {
 	asm_t *ins;
 	int supported[ADDR_MODE_NULL];
@@ -523,10 +532,10 @@ static void instr(assembler_t *as, tk_t t)
 
 	switch (ins->instruction) {
 		case INSTR_CPRP:
-			ins->regs[ins->nregs++] = expect_reg(as);
-			ins->regs[ins->nregs++] = expect_reg(as);
-			ins->regs[ins->nregs++] = expect_reg(as);
-			ins->regs[ins->nregs++] = expect_reg(as);
+			ins->regs[ins->nregs++] = expect_reg(as, true);
+			ins->regs[ins->nregs++] = expect_reg(as, true);
+			ins->regs[ins->nregs++] = expect_reg(as, true);
+			ins->regs[ins->nregs++] = expect_reg(as, false);
 		case INSTR_RET:
 		case INSTR_RTI:
 		case INSTR_BRK:
@@ -535,7 +544,7 @@ static void instr(assembler_t *as, tk_t t)
 		case INSTR_BBS:
 		case INSTR_BBC:
 			ins->bit = expr(as);
-			ins->regs[ins->nregs++] = expect_reg(as);
+			ins->regs[ins->nregs++] = expect_reg(as, true);
 		case INSTR_BZ:
 		case INSTR_BNZ:
 		case INSTR_BCC:
@@ -556,7 +565,7 @@ static void instr(assembler_t *as, tk_t t)
 		case INSTR_ADDW:
 		case INSTR_SBCW:
 		case INSTR_SUBW:
-			ins->regs[ins->nregs++] = expect_reg(as);
+			ins->regs[ins->nregs++] = expect_reg(as, true);
 		case INSTR_LDR:
 		case INSTR_LDRB:
 		case INSTR_STR:
@@ -564,20 +573,20 @@ static void instr(assembler_t *as, tk_t t)
 		case INSTR_CMP:
 		case INSTR_CRB:
 		case INSTR_SRB:
-			ins->regs[ins->nregs++] = expect_reg(as);
+			ins->regs[ins->nregs++] = expect_reg(as, true);
 		case INSTR_LBRA:
 		case INSTR_CALL:
 			goto handle_addressing_mode;
 		case INSTR_DECW:
 		case INSTR_INCW:
-			ins->regs[ins->nregs++] = expect_reg(as);
+			ins->regs[ins->nregs++] = expect_reg(as, true);
 		case INSTR_ASR:
 		case INSTR_LSR:
 		case INSTR_LSL:
 		case INSTR_NOT:
 		case INSTR_DEC:
 		case INSTR_INC:
-			ins->regs[ins->nregs++] = expect_reg(as);
+			ins->regs[ins->nregs++] = expect_reg(as, false);
 			goto implied;
 	}
 
@@ -587,7 +596,7 @@ implied:
 	ins->type = ins->instruction;
 	as->current_section->size += ins->instruction_size;
 	ins->value = expr(as);
-	return;
+	return ins;
 
 relative:
 	ins->addr_mode = ADDR_MODE_RELATIVE;
@@ -595,21 +604,50 @@ relative:
 	ins->type = ins->instruction;
 	as->current_section->size += ins->addr_mode_size + ins->instruction_size;
 	ins->value = expr(as);
-	return;
+	return ins;
 
 handle_addressing_mode:
 	supported_len = get_addr_modes(ins->instruction, supported);
 	addr_mode(as, ins, 0, supported, supported_len);
 	as->current_section->size += ins->addr_mode_size + ins->instruction_size;
-	return;
+	return ins;
 }
 
+
+static void print_instr(asm_t *ins)
+{
+	static const char *ins_name_map[] = {
+	#define MAP_ENTRY(name) [INSTR_##name] = #name,
+		XMACRO_INSTRUCTIONS(MAP_ENTRY)
+	#undef MAP_ENTRY
+	};
+	static const char *addr_mode_name_map[] = {
+	#define MAP_ENTRY(name) [ADDR_MODE_##name] = #name,
+		XMACRO_ADDRESSING_MODES(MAP_ENTRY)
+	#undef MAP_ENTRY
+	};
+	int i;
+
+	printf("instruction: ");
+	for (i = 0; ins_name_map[ins->instruction][i] != '\0'; ++i)
+		putchar(tolower(ins_name_map[ins->instruction][i]));
+	putchar(',');
+	putchar(' ');
+	for (i = 0; addr_mode_name_map[ins->addr_mode][i] != '\0'; ++i)
+		putchar(tolower(addr_mode_name_map[ins->addr_mode][i]));
+	putchar('\n');
+}
 
 static void parse_start(assembler_t *as, tk_t t)
 {
 	char str[100];
+	asm_t *data;
+	constexpr_t *ex;
 	switch (t.type) {
-		case TK_INSTRUCTION:	printf("instruction\n");break;
+		case TK_INSTRUCTION:
+			data = instr(as, t);
+			print_instr(data);
+			break;
 		case TK_GLOBAL:
 			expect(as, t, ':');
 			add_globals(as, t);
@@ -617,11 +655,15 @@ static void parse_start(assembler_t *as, tk_t t)
 
 		case TK_IDENT:
 			if (consume(as, ':')) {
+				BUG("lbldef-rel\n");
 				add_label_def(as, t, DEF_DEFINED, NULL);
 				return;
 			}
 			if (consume(as, '=')) {
-				add_label_def(as, t, DEF_ABSOLUTE, expr(as));
+				BUG("lbldef-abs\n");
+				ex = expr(as);
+				print_constexpr(ex);
+				add_label_def(as, t, DEF_ABSOLUTE, ex);
 				return;
 			}
 			PARSE_ERROR(t, "Expected ':' or assignment after label");
@@ -651,9 +693,7 @@ program_t *parse(tokenizer_t *t)
 	init_assembler(&as, t);
 
 	while (tk = next(&as), tk.type != TK_NULL) {
-		BUG("START\n");
 		parse_start(&as, tk);
-		BUG("created\n");
 	}
 	return NULL;
 }

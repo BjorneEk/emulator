@@ -300,7 +300,7 @@ bool is_ws(i32_t c)
 	return c == ' '
 		|| c == '\t'
 		|| c == '\r'
-		|| c == '\f';
+		|| c == '\f' || c == '	';
 }
 static void line_comment(tokenizer_t *t)
 {

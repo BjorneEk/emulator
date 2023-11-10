@@ -18,4 +18,6 @@ typedef struct cpu {
 
 cpu_t *new_cpu();
 
+void cpu_print(cpu_t *cpu);
+
 #endif /* _CPU_H_ */

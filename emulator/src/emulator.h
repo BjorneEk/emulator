@@ -20,6 +20,6 @@ typedef struct emulator {
 
 emulator_t *new_emulator(cpu_t *cpu, memory_t *mem);;
 
-i32_t execute(emulator_t *em);
+i32_t emulator_execute(emulator_t *em);
 
 #endif /* _EMULATOR_H_ */

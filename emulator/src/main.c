@@ -13,10 +13,6 @@
 #include "util/types.h"
 #include <stdio.h>
 
-extern void print_instruction_(int);
-extern void print_instruction(int);
-#define _(name) print_instruction(INSTR_##name);
-#define __(name) print_instruction_(INSTR_##name);
 int main(int argc, char *argv[])
 {
 	cpu_t *cpu;
@@ -26,5 +22,10 @@ int main(int argc, char *argv[])
 	cpu = new_cpu();
 	mem = new_memory();
 	em = new_emulator(cpu, mem);
-	XMACRO_INSTRUCTIONS(_)
+
+	memory_load_test(mem);
+
+	cpu_print(cpu);
+	emulator_execute(em);
+	cpu_print(cpu);
 }

@@ -29,9 +29,9 @@ instructions:
 (suported adressing modes), [unsuported adressing modes + special], 'all' all except implied and relative
 
 load and store:
-ldr     Rd                  - load register         [im, reg] 0-10
-ldrb    Rd                  - load register byte    [im, reg] 0-10
-ldrw    Rdh, Rdl            - load register wide    [im, reg] 10-20
+ldr     Rd                  - load register         all 0-10
+ldrb    Rd                  - load register byte    all 0-10
+ldrw    Rdh, Rdl            - load register wide    [reg] 10-20
 str     Rd                  - store register        [im, reg]
 strb    Rd                  - store register byte   [im, reg]
 cprp    Rdh, Rdl, Rsh, Rsl  - copy register pair    (implied)
@@ -80,8 +80,6 @@ srb     Rd,         - set bit in register           all
 general:
 brk     - halt execution    (implied)
 nop     - no op             (implied)
-
-
 
 addressing modes:
 
