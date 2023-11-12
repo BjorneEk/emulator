@@ -16,10 +16,11 @@ void cpu_print(cpu_t *cpu)
 {
 	int i;
 
-	for (i = 0; i < 14; i++)
+	for (i = 0; i < 13; i++)
 	{
 		printf("REG %d: %d\n", i, cpu->regs[i]);
 	}
 
+	printf("PS: %d\n", cpu->ps);
 	printf("PC: %d\n", cpu->pc);
 }

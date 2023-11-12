@@ -225,16 +225,36 @@ i32_t emulator_execute(emulator_t *em)
 
 		#define SINSTR_ADC(addr_mode) case SINSTR_ADC_##addr_mode :
 		XMACRO_ADDRESSING_MODES(SINSTR_ADC)
-			addr_mode = opcode - INSTR_ADC;
+			addr_mode = opcode - INSTR_ADC + ADDR_MODE_IMMIDIATE;
+			printf("addr_mode = %d\n", addr_mode);
 
 			reg_byte = memory_read_byte(MEM, PC + 1);
 			reg_d = REGS + (reg_byte >> 4);
+			printf("reg_d: %d\n", reg_byte >> 4);
 			reg_s = REGS + (reg_byte & 0x0F);
+			printf("reg_s: %d\n", reg_byte & 0x0F);
 
 			PC += instruction_size[INSTR_ADC];
 
 			data = data_from_addr_mode(em, addr_mode);
+			printf("data: %d\n", data);
+
 			alu_res = *reg_s + data;
+			if (cpu_get_flag(em->cpu, FLAG_CARRY))
+				alu_res += 1;
+			printf("alu_res: %d\n", alu_res);
+
+			if (alu_res > 0xFFFF)
+				cpu_set_flag(em->cpu, FLAG_CARRY);
+			else
+				cpu_clear_flag(em->cpu, FLAG_CARRY);
+
+			if (!(alu_res & 0xFFFF))
+				cpu_set_flag(em->cpu, FLAG_ZERO);
+			else
+				cpu_clear_flag(em->cpu, FLAG_ZERO);
+
+			*reg_d = alu_res;
 
 			break;
 		#undef SINSTR_ADC

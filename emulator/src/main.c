@@ -6,11 +6,12 @@
  * emulator
  *==========================================================*/
 
-#include "cpu.h"
 #include "emulator.h"
-#include "../../arch/interface.h"
+#include "cpu.h"
 #include "memory.h"
 #include "util/types.h"
+#include "../../arch/interface.h"
+
 #include <stdio.h>
 
 int main(int argc, char *argv[])
@@ -25,6 +26,8 @@ int main(int argc, char *argv[])
 
 	memory_load_test(mem);
 
+	cpu_print(cpu);
+	emulator_execute(em);
 	cpu_print(cpu);
 	emulator_execute(em);
 	cpu_print(cpu);
