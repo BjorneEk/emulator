@@ -31,12 +31,12 @@ entry_point_store: #0xFFFC //the adress on witch the entry point is stored
 ro_memory { // real address
 	org:	#0x9172;
 	length:	#10;
-};
+}
 
 ra_memory { // real address
 	org:	#0x9172;
 	length:	#10;
-};
+}
 
 program (0xFFFFFFFF) // total output size
 { // result output file offset address
@@ -47,5 +47,3 @@ program (0xFFFFFFFF) // total output size
 	put #0xFF			// place a byte here (0xBABA)
 	put #0xFF #10			// place 10 bytes of #0xFF here (0xBABA + 1)
 }
-
-

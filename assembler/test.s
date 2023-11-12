@@ -9,9 +9,9 @@ global_func3: /*
 	here is a multiline comment
  */
 
-	ldr r0, [#0xFF_FF]
-	cprp r1, r0, r3, r2 // comment
-	bbc sp, 'Q'
+	ldr r0, [#0xFF_FF]	; comment
+	cprp r1, r0, r3, r2	// comment
+	bbc #4, r5, #-2
 .data:
 	string a = """Hello, World
-	line 2"""
+ line 2"""

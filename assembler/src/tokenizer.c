@@ -307,15 +307,13 @@ static void line_comment(tokenizer_t *t)
 	int c;
 
 	c = next(t);
-	incr_pos(t, c);
 
-	if (c == '\n')
-		return;
-	if (c == EOF) {
-		--t->column;
+	if (c == '\n' || c == EOF) {
 		pb(t, c);
 		return;
 	}
+
+	incr_pos(t, c);
 	line_comment(t);
 }
 static void skip_ws(tokenizer_t *t);
@@ -865,7 +863,7 @@ tk_t		_tk_next(tokenizer_t *t)
 			MATCH("har")	return tk(t, pos, TK_CHAR);
 			goto base;
 		case 's':
-			MATCH("string")	return tk(t, pos, TK_CHAR);
+			MATCH("tring")	return tk(t, pos, TK_STRING);
 			goto base;
 		case '.':
 			MATCH("global")	return tglob(t, pos);
@@ -902,7 +900,7 @@ tk_t		tk_next(tokenizer_t *t)
 	tk_t res;
 
 	res = _tk_next(t);
-	tk_debug(res);
+	//tk_debug(res);
 	return res;
 }
 
@@ -942,8 +940,8 @@ void _tk_rev(tokenizer_t *tk, tk_t t)
 }
 void tk_rev(tokenizer_t *tk, tk_t t)
 {
-	printf("Putback: ");
-	tk_print(t);
+	//printf("Putback: ");
+	//tk_print(t);
 	_tk_rev(tk, t);
 }
 #define XMACRO_SIMPLE_TOK_(X)				\

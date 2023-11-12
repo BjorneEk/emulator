@@ -104,7 +104,10 @@ static asm_t *new_instr(assembler_t *as, tk_t tk)
 	return res;
 }
 
-
+static asm_t *new_data(assembler_t *as, tk_t tk, int type)
+{
+	return NULL;
+}
 
 static void init_assembler(assembler_t *as, tokenizer_t *t)
 {
@@ -240,13 +243,11 @@ static constexpr_t *toplevel(assembler_t *as)
 	else if(tk.type == TK_INTEGER_LITERAL || tk.type == TK_CHARACTER_LITERAL) {
 		res = new_constexpr(tk);
 		res->val = tk.int_val;
-		BUG("\nFOUND LITERAL\n\n");
 		return res;
 	}
 	else if(tk.type == TK_IDENT) {
 		res = new_constexpr(tk);
 		add_label_ref(as, tk, res);
-		BUG("\nFOUND LABEL-REF\n\n");
 		return res;
 	}
 	tk_type_tostring(tk.type, s1);
@@ -433,21 +434,25 @@ static void addr_mode(assembler_t *as, asm_t *ins, int depth, int *supported, in
 	found_not_expr	= false;
 	reg_set		= false;
 	is_expr		= false;
-	BUG("len: %i\n", len);
+	//BUG("len: %i\n", len);
 	for (i = 0; i < len; i++) if (ops[supported[i]].len > depth) {
 		char	str_[100];
 		tk_type_tostring(tk.type, str);
 		tk_type_tostring(ops[supported[i]].arr[depth], str_);
-		BUG("expect: %s, %s\n", str_, str);
-		if (!is_expr && (ops[supported[i]].arr[depth] == tk.type && ops[supported[i]].len == depth - 1)) { // perfect match
+		//if (ops[supported[i]].arr[depth] == EXPRESSION) {
+		//	BUG("expect: pat:EXPRESSION len: %i, depth: %i, asm:%s\n", ops[supported[i]].len, depth, str);
+		//} else
+		//	BUG("expect: pat:%s len: %i, depth: %i, asm:%s\n", str_, ops[supported[i]].len, depth, str);
+
+		if (!is_expr && (ops[supported[i]].arr[depth] == tk.type && ops[supported[i]].len == depth + 1)) { // perfect match
 
 			if (tk.type == TK_REGISTER && !reg_set) {
 				ins->regs[ins->nregs++] = tk.reg;
 				reg_set = true;
 			}
 perfect:
-			BUG("PERFECT ");
-			print_instr(ins);
+			//BUG("PERFECT ");
+			//print_instr(ins);
 			ins->addr_mode		= supported[i];
 			ins->type		= ins->instruction + ins->addr_mode;
 			ins->addr_mode_size	= addressing_mode_size[ins->addr_mode];
@@ -458,14 +463,15 @@ perfect:
 				ins->regs[ins->nregs++] = tk.reg;
 				reg_set = true;
 			}
-match:
-			BUG("MATCH ");
-			print_instr(ins);
-			_supported[_len++] = supported[i];
 			found_not_expr = true;
+match:
+			//BUG("MATCH %i %i %i", supported[i], depth, ops[supported[i]].len);
+			//print_instr(ins);
+			_supported[_len++] = supported[i];
+
 		} else if (found_not_expr && ops[supported[i]].arr[depth] == EXPRESSION) {
 			break;
-		} else if (ops[supported[i]].arr[depth] == EXPRESSION && ops[supported[i]].len == depth - 1) {
+		} else if (ops[supported[i]].arr[depth] == EXPRESSION && ops[supported[i]].len == depth + 1) {
 			if (!is_expr) {
 				pb(as, tk);
 				ins->value = expr(as);
@@ -484,10 +490,13 @@ match:
 	if (_len > 0) {
 		addr_mode(as, ins, depth + 1, _supported, _len);
 		return;
+	} else if (_len == 0) {
+		pb(as, tk);
 	} else if(ins->addr_mode == -1) {
 		tk_type_tostring(tk.type, str);
 		PARSE_ERROR(tk, "unexpected instruction argument: ", str);
 	}
+
 }
 
 static int get_addr_modes(int type, int *supported)
@@ -544,6 +553,7 @@ static asm_t *instr(assembler_t *as, tk_t t)
 		case INSTR_BBS:
 		case INSTR_BBC:
 			ins->bit = expr(as);
+			expect(as, ins->bit->token, ',');
 			ins->regs[ins->nregs++] = expect_reg(as, true);
 		case INSTR_BZ:
 		case INSTR_BNZ:
@@ -595,7 +605,6 @@ implied:
 	ins->addr_mode_size = 0;
 	ins->type = ins->instruction;
 	as->current_section->size += ins->instruction_size;
-	ins->value = expr(as);
 	return ins;
 
 relative:
@@ -631,11 +640,17 @@ static void print_instr(asm_t *ins)
 	printf("instruction: ");
 	for (i = 0; ins_name_map[ins->instruction][i] != '\0'; ++i)
 		putchar(tolower(ins_name_map[ins->instruction][i]));
-	putchar(',');
-	putchar(' ');
-	for (i = 0; addr_mode_name_map[ins->addr_mode][i] != '\0'; ++i)
-		putchar(tolower(addr_mode_name_map[ins->addr_mode][i]));
+	if (ins->addr_mode == ADDR_MODE_RELATIVE){
+		printf(", relative");
+	} else if (ins->addr_mode != ADDR_MODE_NULL && ins->addr_mode) {
+		putchar(',');
+		putchar(' ');
+		printf("%i ", ins->addr_mode);
+		for (i = 0; addr_mode_name_map[ins->addr_mode][i] != '\0'; ++i)
+			putchar(tolower(addr_mode_name_map[ins->addr_mode][i]));
+	}
 	putchar('\n');
+
 }
 
 static void parse_start(assembler_t *as, tk_t t)
@@ -655,12 +670,10 @@ static void parse_start(assembler_t *as, tk_t t)
 
 		case TK_IDENT:
 			if (consume(as, ':')) {
-				BUG("lbldef-rel\n");
 				add_label_def(as, t, DEF_DEFINED, NULL);
 				return;
 			}
 			if (consume(as, '=')) {
-				BUG("lbldef-abs\n");
 				ex = expr(as);
 				print_constexpr(ex);
 				add_label_def(as, t, DEF_ABSOLUTE, ex);
