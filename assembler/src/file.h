@@ -34,6 +34,8 @@ typedef struct file {
 
 void	open_file(file_t *res, const char *filename, int mode);
 
+void	ftemp_with(file_t *res, int ext, const char *fmt, ...);
+
 int	fnext(file_t *f);
 
 void	fpb(file_t *f, int c);

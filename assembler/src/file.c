@@ -7,6 +7,7 @@
  *==========================================================*/
 #include "file.h"
 #include "../../common/util/error.h"
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -49,6 +50,26 @@ void	open_file(file_t *res, const char *filename, int mode)
 
 	res->extension = get_fileext(filename + i);
 	return;
+}
+static FILE *tmp(const char *restrict fmt, va_list args)
+{
+	FILE	*res;
+
+	res = tmpfile();
+	vfprintf(res, fmt, args);
+	rewind(res);
+	return res;
+}
+
+void	ftemp_with(file_t *res, int ext, const char *restrict fmt, ...)
+{
+	va_list args;
+
+	va_start(args, fmt);
+	res->mode = MODE_READWRITE;
+	res->extension = ext;
+	res->filename = "temporary-file";
+	res->fp = tmp(fmt, args);
 }
 
 int	fnext(file_t *f)

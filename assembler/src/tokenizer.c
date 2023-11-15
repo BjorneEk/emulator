@@ -21,7 +21,7 @@
 
 typedef struct tokenizer {
 
-	file_t		file;
+	file_t		*file;
 
 	int		line;
 	int		column;
@@ -46,12 +46,12 @@ static inline tpos_t tpos(tokenizer_t *t)
 
 static inline int next(tokenizer_t *t)
 {
-	return fnext(&t->file);
+	return fnext(t->file);
 }
 
 static inline void pb(tokenizer_t *t, int c)
 {
-	fpb(&t->file, c);
+	fpb(t->file, c);
 }
 
 static inline int peak(tokenizer_t *t)
@@ -150,7 +150,7 @@ static void incr_pos(tokenizer_t *t, int c)
 		++t->line;
 		t->column = 0;
 		t->prevline_pos = t->line_pos;
-		fgetpos(t->file.fp, &t->line_pos);
+		fgetpos(t->file->fp, &t->line_pos);
 	}
 }
 __attribute__((unused))
@@ -522,7 +522,7 @@ static bool skip_newline(tokenizer_t *t)
 	c = next(t);
 	if (c == '\n') {
 		t->prevline_pos = t->line_pos;
-		fgetpos(t->file.fp, &t->line_pos);
+		fgetpos(t->file->fp, &t->line_pos);
 		t->column = 0;
 		++t->line;
 		return true;
@@ -904,16 +904,16 @@ tk_t		tk_next(tokenizer_t *t)
 	return res;
 }
 
-tokenizer_t	*new_tokenizer(const char *const filename)
+tokenizer_t	*new_tokenizer(file_t *file)
 {
 	tokenizer_t *res;
 
 	res	= malloc(sizeof(tokenizer_t));
-	open_file(&res->file, filename, MODE_READ);
+	res->file = file;
 
 	res->line	= 0;
 	res->column	= 0;
-	fgetpos(res->file.fp, &res->prevline_pos);
+	fgetpos(res->file->fp, &res->prevline_pos);
 	res->line_pos = res->prevline_pos;
 
 	return res;

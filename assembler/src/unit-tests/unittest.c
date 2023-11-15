@@ -10,6 +10,8 @@
 #include "../assembler.h"
 #include <stdio.h>
 
+
+
 int main(int argc, const char *argv[])
 {
 	printf("UNIT TEST!\n");

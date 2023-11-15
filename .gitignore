@@ -5,4 +5,5 @@
 *.log
 *.synctex.gz
 assembler/assembler
+assembler/assembler-unit-test
 emulator/emulator

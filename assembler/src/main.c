@@ -13,9 +13,10 @@
 int main(int argc, const char *argv[])
 {
 	tokenizer_t *t;
-
+	file_t file;
 	//tk_t tok;
-	t = new_tokenizer(argv[1]);
+	open_file(&file, argv[1], MODE_READ);
+	t = new_tokenizer(&file);
 	/*do {
 		tok = tk_next(t);
 		tk_print(tok);

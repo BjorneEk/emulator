@@ -65,7 +65,7 @@ typedef struct token {
 
 typedef struct tokenizer tokenizer_t;
 
-tokenizer_t	*new_tokenizer(const char *const filename);
+tokenizer_t	*new_tokenizer(file_t *file);
 
 tk_t		tk_next(tokenizer_t *tokenizer);
 tk_t		tk_prev(tokenizer_t *tokenizer);
