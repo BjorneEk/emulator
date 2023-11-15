@@ -1,24 +1,39 @@
 TARGET=assembler
-
+UNIT_TEST=assembler-unit-test
 # Files
 SOURCE_DIR:=src
 INSTRUCTIONS_DIR:=../arch
+UNIT_TEST_DIR:=$(SOURCE_DIR)/unit-tests
 COMMON_DIR:=../common
+
+MAIN_SOURCE:=$(SOURCE_DIR)/main.c
 
 SOURCE_FILES:=$(wildcard $(SOURCE_DIR)/*.c $(SOURCE_DIR)/*/*.c)
 SOURCE_FILES+=$(wildcard $(INSTRUCTIONS_DIR)/*.c $(INSTRUCTIONS_DIR)/*/*.c)
 SOURCE_FILES+=$(wildcard $(COMMON_DIR)/*.c $(COMMON_DIR)/*/*.c)
 
+MAIN_SOURCE_FILES:=$(filter-out $(UNIT_TEST_DIR)/%, $(SOURCE_FILES))
+UNIT_TEST_SOURCE_FILES:=$(filter-out $(MAIN_SOURCE), $(SOURCE_FILES))
+
 HEADER_FILES:=$(wildcard $(SOURCE_DIR)/*.h $(SOURCE_DIR)/*/*.h)
 HEADER_FILES+=$(wildcard $(INSTRUCTIONS_DIR)/*.h $(INSTRUCTIONS_DIR)/*/*.h)
 HEADER_FILES+=$(wildcard $(COMMON_DIR)/*.h $(COMMON_DIR)/*/*.h)
+
+MAIN_HEADER_FILES:=$(filter-out $(UNIT_TEST_DIR)/%, $(HEADER_FILES))
+UNIT_TEST_HEADER_FILES:=$(filter-out $(MAIN_SOURCE), $(HEADER_FILES))
 
 ASSEMB_FILES:=$(wildcard $(SOURCE_DIR)/*.S $(SOURCE_DIR)/*/*.S)
 ASSEMB_FILES+=$(wildcard $(INSTRUCTIONS_DIR)/*.S $(INSTRUCTIONS_DIR)/*/*.S)
 ASSEMB_FILES+=$(wildcard $(COMMON_DIR)/*.S $(COMMON_DIR)/*/*.S)
 
-OBJ:=${SOURCE_FILES:.c=.o}
-OBJ+=${ASSEMB_FILES:.S=.o}
+MAIN_ASSEMB_FILES:=$(filter-out $(UNIT_TEST_DIR)/%, $(ASSEMB_FILES))
+UNIT_TEST_ASSEMB_FILES:=$(filter-out $(MAIN_SOURCE), $(ASSEMB_FILES))
+
+OBJ:=${MAIN_SOURCE_FILES:.c=.o}
+OBJ+=${MAIN_ASSEMB_FILES:.S=.o}
+
+UNIT_OBJ:=${UNIT_TEST_SOURCE_FILES:.c=.o}
+UNIT_OBJ+=${UNIT_TEST_ASSEMB_FILES:.S=.o}
 
 # Compiler
 CC:=gcc
@@ -50,9 +65,16 @@ PPFLAGS:=-E
 $(TARGET): $(OBJ)
 	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
 
+$(UNIT_TEST): $(UNIT_OBJ)
+	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
+
 run: $(TARGET)
 	./$(TARGET)
 
+test: $(UNIT_TEST)
+	./$(UNIT_TEST)
+
 clean:
 	$(RM)	$(OBJ)
+	$(RM)	$(UNIT_OBJ)
 	$(RM)	$(TARGET)
