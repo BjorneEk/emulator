@@ -17,8 +17,9 @@
 enum parser_types {
 	DATA_BYTE = SINSTR_NULL + 1,
 	DATA_WORD,
+	DATA_LONG,
+	DATA_ARRAY,
 	DATA_STRING,
-	DATA_WSTRING,
 
 	DEF_UNDEFINED = TK_LAST,
 	DEF_UNDEFINED_REF,
@@ -62,30 +63,33 @@ typedef struct section {
 	bool		has_raw_data;
 } section_t;
 
+
+
 typedef struct asm_entry {
-	int type;
 
-	int instruction;
-	int addr_mode;
+	int	type;
+	int	rel_addr;
+	tk_t	token;
 
-	int instruction_size;
-	int addr_mode_size;
-	int rel_addr;
-
-	tk_t token;
-	constexpr_t *bit;
 	union {
 		struct {
-			constexpr_t *value;
-			int regs[ASM_REG_COUNT];
-			int nregs;
+			int		instruction;
+			int		addr_mode;
+			constexpr_t	*value;
+			constexpr_t	*bit;			/* used by bbc and bbs */
+			int		regs[ASM_REG_COUNT];
+			int		nregs;
+			int		instruction_size;
+			int		addr_mode_size;
+
 		};
 
 		union {
-			u8_t	byte;
-			u16_t	word;
-			u8_t	*bytes;
-			u16_t	*words;
+			int		array_type;
+			int		data_size;
+			constexpr_t	*data_value;
+			dla_t		*array_values;	/* constexpr_t* */
+			char		*string;
 		};
 	};
 

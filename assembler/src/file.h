@@ -17,6 +17,7 @@ enum file_extensions {
 	EXT_LINKER_SCRIPT,
 	EXT_BINARY
 };
+
 enum file_mode {
 	MODE_READ,
 	MODE_WRITE,
@@ -29,6 +30,7 @@ typedef struct file {
 	int		extension;
 	int		mode;
 } file_t;
+
 
 void	open_file(file_t *res, const char *filename, int mode);
 

@@ -10,8 +10,10 @@
 #include "../../common/structures/hashmap.h"
 #include "tokenizer.h"
 #include "../../common/util/error.h"
+#include "../../common/util/error.h"
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 
@@ -81,32 +83,68 @@ static section_t *new_section(tk_t tk)
 
 	return res;
 }
-
-static asm_t *new_instr(assembler_t *as, tk_t tk)
+static asm_t *new_asm(assembler_t *as, tk_t tk)
 {
 	asm_t *res;
 
 	if (as->current_section == NULL)
-		PARSE_ERROR(tk, "instructions need to be placed in sections, define a section before instruction with '.section_name:'");
+		PARSE_ERROR(tk, "instructions and data need to be placed in sections, define a section with '.section_name:'");
+
+
+
+	res = malloc(sizeof(asm_t));
+	DLA_append(as->current_section->data, &res);
+	res->token	= tk;
+	res->rel_addr	= as->current_section->size;
+
+	return res;
+}
+static asm_t *new_instr(assembler_t *as, tk_t tk)
+{
+	asm_t *res;
 
 	if (as->current_section->has_raw_data)
 		PARSE_WARNING(tk, "mixing data and instructions in same section (%s)", as->current_section->tk.str_val);
 
-	res = malloc(sizeof(asm_t));
-	DLA_append(as->current_section->data, &res);
+	res = new_asm(as, tk);
 	res->type		= TK_INSTRUCTION;
 	res->instruction	= tk.instype;
-	res->instruction_size	= instruction_size[res->instruction];
-	res->token		= tk;
-	res->rel_addr		= as->current_section->size;
 	res->addr_mode		= -1;
 	res->nregs		= 0;
+	res->instruction_size	= instruction_size[res->instruction];
 	return res;
 }
-
-static asm_t *new_data(assembler_t *as, tk_t tk, int type)
+static int type_size(int type)
 {
-	return NULL;
+	switch(type) {
+		case DATA_BYTE: return 1;
+		case DATA_WORD: return 2;
+		case DATA_LONG: return 4;
+		case DATA_ARRAY:
+			exit_error("cannot get size of array type");
+		default:
+			exit_error("unknown type");
+	}
+}
+
+static asm_t *new_data(assembler_t *as, tk_t tk, int type, int array_type)
+{
+	asm_t *res;
+	int size_type;
+
+	if (!as->current_section->has_raw_data && as->current_section->size != 0)
+		PARSE_WARNING(tk, "mixing data and instructions in same section (%s)", as->current_section->tk.str_val);
+
+	res = new_asm(as, tk);
+	res->type = type;
+	res->array_type = array_type;
+	size_type = type;
+	if (type == DATA_ARRAY) {
+		res->array_values = DLA_new(sizeof(constexpr_t*), 5);
+		size_type = array_type;
+	}
+	res->data_size = type_size(size_type);
+	return res;
 }
 
 static void init_assembler(assembler_t *as, tokenizer_t *t)
@@ -436,9 +474,9 @@ static void addr_mode(assembler_t *as, asm_t *ins, int depth, int *supported, in
 	is_expr		= false;
 	//BUG("len: %i\n", len);
 	for (i = 0; i < len; i++) if (ops[supported[i]].len > depth) {
-		char	str_[100];
-		tk_type_tostring(tk.type, str);
-		tk_type_tostring(ops[supported[i]].arr[depth], str_);
+		//char	str_[100];
+		//tk_type_tostring(tk.type, str);
+		//tk_type_tostring(ops[supported[i]].arr[depth], str_);
 		//if (ops[supported[i]].arr[depth] == EXPRESSION) {
 		//	BUG("expect: pat:EXPRESSION len: %i, depth: %i, asm:%s\n", ops[supported[i]].len, depth, str);
 		//} else
@@ -652,6 +690,106 @@ static void print_instr(asm_t *ins)
 	putchar('\n');
 
 }
+static int type_to_data_type(int type)
+{
+	switch(type) {
+		case TK_STRING:
+			return DATA_STRING;
+		case TK_CHAR:
+		case TK_I8:
+		case TK_U8:
+			return DATA_BYTE;
+		case TK_I16:
+		case TK_U16:
+			return DATA_WORD;
+		case TK_I32:
+		case TK_U32:
+			return DATA_LONG;
+	}
+	return -1;
+}
+
+static void parse_array_data(assembler_t *as, asm_t *res)
+{
+	tk_t tk;
+	constexpr_t *exp;
+
+	do {
+		exp = expr(as);
+		DLA_append(res->array_values, &exp);
+	} while (consume(as, ','));
+
+	tk = next(as);
+
+	if (tk.type != ']')
+		PARSE_ERROR(tk, "unclosed array literal");
+
+	res->data_size *= res->array_values->len;
+	as->current_section->size += res->data_size;
+}
+
+static void parse_string_data(assembler_t *as, asm_t *res)
+{
+	tk_t tk;
+	int len;
+	char *str = NULL;
+
+	len = 1;
+
+	tk = next(as);
+
+	if (tk.type != TK_STRING_LITERAL)
+		PARSE_ERROR(tk, "expected string literal");
+
+	for (;;) {
+		str = realloc(str, len + tk.tklen);
+		memmove(str + len - 1, tk.str_val, tk.tklen);
+		len += tk.tklen;
+		str[len - 1] = '\0';
+		free(tk.str_val);
+		tk = next(as);
+		if (tk.type != TK_STRING_LITERAL)
+			break;
+	}
+	res->string = str;
+	res->data_size *= len;
+	as->current_section->size += res->data_size;
+}
+
+static void parse_data_lit(assembler_t *as, tk_t prev)
+{
+	tk_t tk;
+	asm_t *res;
+
+	tk = next(as);
+
+	if (tk.type == TK_IDENT) {
+		add_label_def(as, tk, DEF_DEFINED, NULL);
+		consume(as, '='); /* not nececcary */
+		tk = next(as);
+	} else if (tk.type == '=') {
+		tk = next(as);
+	}
+
+	if (tk.type == '[') {
+		if (prev.type == TK_STRING)
+			PARSE_ERROR(prev, "multidimensional arrays unsuported");
+
+		res = new_data(as, tk, DATA_ARRAY, type_to_data_type(prev.type));
+		parse_array_data(as, res);
+
+		return;
+	}
+
+	if (prev.type == TK_STRING) {
+		res = new_data(as, tk, DATA_STRING, DATA_BYTE);
+		parse_string_data(as, res);
+		return;
+	}
+
+	res = new_data(as, tk, type_to_data_type(prev.type), 0);
+	res->data_value = expr(as);
+}
 
 static void parse_start(assembler_t *as, tk_t t)
 {
@@ -663,6 +801,7 @@ static void parse_start(assembler_t *as, tk_t t)
 			data = instr(as, t);
 			print_instr(data);
 			break;
+
 		case TK_GLOBAL:
 			expect(as, t, ':');
 			add_globals(as, t);
@@ -681,17 +820,22 @@ static void parse_start(assembler_t *as, tk_t t)
 			}
 			PARSE_ERROR(t, "Expected ':' or assignment after label");
 			break;
+
 		case TK_SECTION:
 			expect(as, t, ':');
 			add_section(as, t);
 			break;
 
-		case TK_STRING:		printf("string\n");break;
+		case TK_STRING:
 		case TK_CHAR:
-		case TK_I8:		printf("char\n");break;
-		case TK_U8:		printf("byte\n");break;
-		case TK_I16:		printf("sword\n");break;
-		case TK_U16:		printf("word\n");break;
+		case TK_I8:
+		case TK_U8:
+		case TK_I16:
+		case TK_U16:
+		case TK_I32:
+		case TK_U32:
+			parse_data_lit(as, t);
+			break;
 		default:
 			tk_type_tostring(t.type, str);
 			PARSE_ERROR(t, "expected top level token (instruction, global defs, identifyer, section or typename), found: %s", str);
@@ -800,17 +944,3 @@ void print_constexpr(constexpr_t *ex)
 {
 	_print_constexpr(ex, "", true);
 }
-
-// absolute:
-// [#val]              - abs,          !, -
-// [reg, reg]          - abs-ptr,      !, -
-
-// absolute-idx:
-// [#val] + reg         - abs-idx,     !, -
-// [reg, reg] + reg     - abs-ptr-idx, !, -
-// [reg, reg] + #val    - abs-ptr-off, !, -
-
-// zero-page:
-// [reg]               - zp-ptr,       !, -
-// [reg + #val]        - zp-offset,    !, -
-// [reg + reg]         - zp-idx,       !, -

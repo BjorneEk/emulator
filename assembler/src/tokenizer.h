@@ -23,6 +23,7 @@
 	X(STRING)		X(CHAR)			\
 	X(I8)			X(U8)			\
 	X(I16)			X(U16)			\
+	X(I32)			X(U32)			\
 
 #define XMACRO_LINKER_TOKENS(X)			\
 	X(RO_MEMORY)	X(RA_MEMORY)		\
