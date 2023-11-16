@@ -41,7 +41,7 @@ static char esc_chars[256] = {
 
 static inline tpos_t tpos(tokenizer_t *t)
 {
-	return (tpos_t) {t->line, t->column, t->prevline_pos, &t->file};
+	return (tpos_t) {t->line, t->column, t->prevline_pos, t->file};
 }
 
 static inline int next(tokenizer_t *t)
