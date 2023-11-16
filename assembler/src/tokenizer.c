@@ -10,7 +10,7 @@
 #include "../../arch/interface.h"
 #include "file.h"
 #include "../../common/util/error.h"
-#include <_ctype.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>

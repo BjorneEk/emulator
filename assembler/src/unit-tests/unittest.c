@@ -120,7 +120,6 @@ void pass_test(const char * fmt, ...)
 static void get_am_str(char *res, int addr_mode, int first_reg)
 {
 	const struct addr_mode_test *am;
-
 	char r0[3];
 	char r1[3];
 	char r2[3];
