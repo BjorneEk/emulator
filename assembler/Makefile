@@ -1,5 +1,6 @@
 TARGET=assembler
 UNIT_TEST=assembler-unit-test
+
 # Files
 SOURCE_DIR:=src
 INSTRUCTIONS_DIR:=../arch
@@ -51,7 +52,6 @@ PP:=gcc
 PPFLAGS:=-E
 
 # Rules
-
 %.o: %.S Makefile
 	$(PP) $< -o tmp.tmp $(PPFLAGS)
 	sed /^#/d tmp.tmp > preprocessed.tmp.s
@@ -78,3 +78,4 @@ clean:
 	$(RM)	$(OBJ)
 	$(RM)	$(UNIT_OBJ)
 	$(RM)	$(TARGET)
+	$(RM)	$(UNIT_TEST)
