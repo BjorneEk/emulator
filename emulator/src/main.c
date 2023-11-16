@@ -14,7 +14,7 @@
 
 #include <stdio.h>
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	cpu_t *cpu;
 	memory_t *mem;

@@ -90,10 +90,12 @@ static const struct ins_test {
 	{.itype = INSTR_CRB,	.inp = "crb r0, %s",		.reg_count = 1, .is_implied = false,	.val = 0},
 	{.itype = INSTR_SRB,	.inp = "srb r0, %s",		.reg_count = 1, .is_implied = false,	.val = 0},
 };
+
 void onfail()
 {
 	exit(-1);
 }
+
 __attribute__((format(printf, 1, 2)))
 void fail_test(const char * fmt, ...)
 {
@@ -104,6 +106,7 @@ void fail_test(const char * fmt, ...)
 	fprintf(stderr, "\n");
 	onfail();
 }
+
 __attribute__((format(printf, 1, 2)))
 void pass_test(const char * fmt, ...)
 {
@@ -284,6 +287,7 @@ static void test_instruction(const struct ins_test *ins)
 
 	pass_test("instruction (%s)", ins->inp);
 }
+
 static void test_all_instructions()
 {
 	int i;

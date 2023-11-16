@@ -15,14 +15,14 @@ memory_t *new_memory()
 
 u8_t memory_read_byte(memory_t *mem, u32_t addr)
 {
-	ASSERT(0 <= addr && addr < MEMORY_SIZE);
+	ASSERT(addr < MEMORY_SIZE);
 
 	return mem->data[addr];
 }
 
 void memory_write_byte(memory_t *mem, u32_t addr, u8_t data)
 {
-	ASSERT(0 <= addr && addr < MEMORY_SIZE);
+	ASSERT(addr < MEMORY_SIZE);
 
 	mem->data[addr] = data;
 }
