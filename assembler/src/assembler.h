@@ -105,4 +105,6 @@ typedef struct program {
 void		print_constexpr(constexpr_t *ex);
 program_t	*parse(tokenizer_t *t);
 
+void		program_free(program_t **p);
+
 #endif /* _ASSEMBLER_H_ */

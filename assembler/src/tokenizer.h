@@ -81,5 +81,5 @@ void		tk_type_tostring(int t, char *res);
 void		tk_print(tk_t t);
 void		tk_debug(tk_t t);
 
-
+void		tk_close(tokenizer_t **tokenizer);
 #endif /* _TOKENIZER_H_ */

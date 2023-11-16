@@ -33,11 +33,17 @@ typedef struct tokenizer {
 	bool has_pb;
 } tokenizer_t;
 
+
 static char esc_chars[256] = {
 	['a'] = '\a', ['b'] = '\b',   ['f'] = '\f',
 	['n'] = '\n', ['r'] = '\r',   ['t'] = '\t',
 	['v'] = '\v', ['e'] = '\033', ['E'] = '\033',
 };
+
+void		tk_close(tokenizer_t **tokenizer)
+{
+	free(*tokenizer);
+}
 
 static inline tpos_t tpos(tokenizer_t *t)
 {
@@ -422,7 +428,7 @@ static int tk_instr_rec(tokenizer_t *t, char **rs, char *strb, struct insmap_kvp
 	len_ = 0;
 	for (i = 0; i < len; i++) {
 		if (d <= map[i].slen && map[i].s[d] == toupper(c) && map[i].slen - 2 == d) {
-			if (is_ws(peak(t))) {
+			if (is_ws(peak(t)) || peak(t) == '\n') {
 				//t->column += d + 1;
 				return map[i].ins;
 			}
@@ -930,7 +936,7 @@ tk_t		tk_prev(tokenizer_t *t)
 	return (tk_t){0};
 }
 
-void		tk_close(tokenizer_t **tokenizer);
+
 
 void _tk_rev(tokenizer_t *tk, tk_t t)
 {

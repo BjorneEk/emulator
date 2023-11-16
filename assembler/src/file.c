@@ -60,7 +60,7 @@ static FILE *tmp(const char *restrict fmt, va_list args)
 	rewind(res);
 	return res;
 }
-
+__attribute__((format(printf, 3, 4)))
 void	ftemp_with(file_t *res, int ext, const char *restrict fmt, ...)
 {
 	va_list args;

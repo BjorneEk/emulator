@@ -9,15 +9,16 @@
 #include "../../../common/util/types.h"
 #include "../../../common/util/error.h"
 #include "../assembler.h"
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 
 #define VAL8_INT	0xFC
 #define VAL16_INT	0xFEAD
 #define VAL32_INT	0xABABABAB
-#define VAL8_STR	"0xFC"
-#define VAL16_STR	"0xFEAD"
-#define VAL32_STR	"0xABABABAB"
+#define VAL8_STR	"#0xFC"
+#define VAL16_STR	"#0xFEAD"
+#define VAL32_STR	"#0xABABABAB"
 
 static const struct addr_mode_test {
 	const char	*inp;
@@ -51,7 +52,7 @@ static const struct ins_test {
 	{.itype = INSTR_LDRB,	.inp = "ldrb r0, %s",		.reg_count = 1, .is_implied = false,	.val = 0},
 	{.itype = INSTR_LDRW,	.inp = "ldrw r0, r1, %s",	.reg_count = 2, .is_implied = false,	.val = 0},
 	{.itype = INSTR_STR,	.inp = "str r0, %s",		.reg_count = 1, .is_implied = false,	.val = 0},
-	{.itype = INSTR_STRB,	.inp = "ldrb r0, %s",		.reg_count = 1, .is_implied = false,	.val = 0},
+	{.itype = INSTR_STRB,	.inp = "strb r0, %s",		.reg_count = 1, .is_implied = false,	.val = 0},
 	{.itype = INSTR_CPRP,	.inp = "cprp r0, r1, r2, r3",	.reg_count = 4, .is_implied = true,	.val = 0},
 	{.itype = INSTR_BZ,	.inp = "bz %s",			.reg_count = 0, .is_implied = false,	.val = 0},
 	{.itype = INSTR_BNZ,	.inp = "bnz %s",		.reg_count = 0, .is_implied = false,	.val = 0},
@@ -59,8 +60,8 @@ static const struct ins_test {
 	{.itype = INSTR_BCS,	.inp = "bcs %s",		.reg_count = 0, .is_implied = false,	.val = 0},
 	{.itype = INSTR_BRN,	.inp = "brn %s",		.reg_count = 0, .is_implied = false,	.val = 0},
 	{.itype = INSTR_BRP,	.inp = "brp %s",		.reg_count = 0, .is_implied = false,	.val = 0},
-	{.itype = INSTR_BBS,	.inp = "bbs 1, r0, %s",		.reg_count = 1, .is_implied = false,	.val = 1},
-	{.itype = INSTR_BBC,	.inp = "bbc 1, r0, %s",		.reg_count = 1, .is_implied = false,	.val = 1},
+	{.itype = INSTR_BBS,	.inp = "bbs #1, r0, %s",	.reg_count = 1, .is_implied = false,	.val = 1},
+	{.itype = INSTR_BBC,	.inp = "bbc #1, r0, %s",	.reg_count = 1, .is_implied = false,	.val = 1},
 	{.itype = INSTR_BRA,	.inp = "bra %s",		.reg_count = 0, .is_implied = false,	.val = 0},
 	{.itype = INSTR_LBRA,	.inp = "lbra %s",		.reg_count = 0, .is_implied = false,	.val = 0},
 	{.itype = INSTR_CALL,	.inp = "call %s",		.reg_count = 0, .is_implied = false,	.val = 0},
@@ -89,6 +90,32 @@ static const struct ins_test {
 	{.itype = INSTR_CRB,	.inp = "crb r0, %s",		.reg_count = 1, .is_implied = false,	.val = 0},
 	{.itype = INSTR_SRB,	.inp = "srb r0, %s",		.reg_count = 1, .is_implied = false,	.val = 0},
 };
+void onfail()
+{
+	exit(-1);
+}
+__attribute__((format(printf, 1, 2)))
+void fail_test(const char * fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	fprintf(stderr, "[\033[31;1;4m" "Unit-Test Failed" "\033[0m]" ": ");
+	vfprintf(stderr, fmt, args);
+	fprintf(stderr, "\n");
+	onfail();
+}
+__attribute__((format(printf, 1, 2)))
+void pass_test(const char * fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	printf("[\033[32;1;4m" "Unit-Test passed" "\033[0m]" ": ");
+	vprintf(fmt, args);
+	printf("\n");
+}
+
+#define TEST(pred, ...) if (pred) { pass_test(__VA_ARGS__); } else {fail_test(__VA_ARGS__);}
+#define TEST_QUIET(pred, ...) if (!(pred)) { fail_test(__VA_ARGS__); }
 
 static void get_am_str(char *res, int addr_mode, int first_reg)
 {
@@ -188,6 +215,102 @@ static char *instructions_string()
 	return str;
 }
 
+static void test_instruction(const struct ins_test *ins)
+{
+	const int	*ams;
+	int		ams_len;
+	int		i, j;
+	char		ins_str[200];
+	char		am_str[200];
+	file_t		tmp;
+	tokenizer_t	*tk;
+	program_t	*p;
+	section_t	*section;
+	asm_t		*data;
+
+	if (ins->is_implied) {
+		strcpy(ins_str, ins->inp);
+		ftemp_with(&tmp, EXT_ASM_FILE, ".section:\n	%s\n", ins_str);
+		tk = new_tokenizer(&tmp);
+		p = parse(tk);
+		section = HMAP_get(p->sections, "section", 7);
+		TEST_QUIET(section != NULL, "section found (%s)", ins->inp);
+		TEST_QUIET(section->data->len == 1, "section length == 1 (%s)", ins->inp);
+		data = *(asm_t**)DLA_get(section->data, 0);
+		TEST_QUIET(data->instruction == ins->itype, "instruction type (%s)", ins->inp);
+		for (j = 0; j < ins->reg_count; j++)
+			TEST_QUIET(data->regs[j] == j, "matching register: r%i to register r%i", j, data->regs[j]);
+		//pass_test("registers (%s)", ins->inp);
+
+		program_free(&p);
+		tk_close(&tk);
+		close_file(&tmp);
+		pass_test("instruction (%s)", ins->inp);
+		return;
+	}
+
+	ams_len = ADDR_MODE_NULL;
+	ams = supported_addressing_modes[ins->itype];
+
+	for (i = 0; i < ams_len; i++) {
+		if (ams[i] == ADDR_MODE_NULL) {
+			pass_test("instruction (%s)", ins->inp);
+			return; /* success */
+		}
+
+		ins_str[0] = '\0';
+
+		get_am_str(am_str, ams[i], ins->reg_count);
+
+
+		sprintf(ins_str, ins->inp, am_str);
+		ftemp_with(&tmp, EXT_ASM_FILE, ".section:\n	%s\n", ins_str);
+		tk = new_tokenizer(&tmp);
+		p = parse(tk);
+		section = HMAP_get(p->sections, "section", 7);
+		TEST_QUIET(section != NULL, "section found (%s)", ins_str);
+		TEST_QUIET(section->data->len == 1, "section length == 1 (%s)", ins_str);
+		data = *(asm_t**)DLA_get(section->data, 0);
+		TEST_QUIET(data->instruction == ins->itype, "instruction type (%s)", ins_str);
+		for (j = 0; j < ins->reg_count + ADDR_MODE_TEST_DATA[ams[i]].reg_count; j++)
+			TEST_QUIET(data->regs[j] == j, "matching register: r%i to register r%i", j, data->regs[j]);
+		//pass_test("registers (%s)", ins->inp);
+
+		program_free(&p);
+		tk_close(&tk);
+		close_file(&tmp);
+		//pass_test("instruction (%s)", ins_str);
+	}
+
+	pass_test("instruction (%s)", ins->inp);
+}
+static void test_all_instructions()
+{
+	int i;
+	for (i = 0; i < sizeof INSTRUCTION_TEST_DATA / sizeof(struct ins_test); i++)
+		test_instruction(&INSTRUCTION_TEST_DATA[i]);
+}
+
+static void test_big_program()
+{
+	file_t		tmp;
+	tokenizer_t	*tk;
+	program_t	*p;
+	section_t	*section;
+	char		*code_str;
+
+	code_str = instructions_string();
+	ftemp_with(&tmp, EXT_ASM_FILE, ".section:\n%s\n",
+		code_str);
+	free(code_str);
+
+	tk = new_tokenizer(&tmp);
+	p = parse(tk);
+	program_free(&p);
+	tk_close(&tk);
+	close_file(&tmp);
+}
+
 int main(int argc, const char *argv[])
 {
 	char *instruction_test_code;
@@ -196,5 +319,6 @@ int main(int argc, const char *argv[])
 	printf("UNIT TEST!\n");
 	printf("%s\n", instruction_test_code);
 	free(instruction_test_code);
-
+	test_all_instructions();
+	test_big_program();
 }

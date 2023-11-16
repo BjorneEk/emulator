@@ -488,14 +488,15 @@ static void addr_mode(assembler_t *as, asm_t *ins, int depth, int *supported, in
 				ins->regs[ins->nregs++] = tk.reg;
 				reg_set = true;
 			}
+			found_not_expr = true;
 perfect:
 			//BUG("PERFECT ");
 			//print_instr(ins);
 			ins->addr_mode		= supported[i];
 			ins->type		= ins->instruction + ins->addr_mode;
 			ins->addr_mode_size	= addressing_mode_size[ins->addr_mode];
-			addr_mode(as, ins, depth + 1, _supported, _len);
-			return;
+			//addr_mode(as, ins, depth + 1, _supported, _len);
+			//return;
 		} else if (!is_expr && (ops[supported[i]].arr[depth] == tk.type)) { // match
 			if (tk.type == TK_REGISTER && !reg_set) {
 				ins->regs[ins->nregs++] = tk.reg;
@@ -528,7 +529,7 @@ match:
 	if (_len > 0) {
 		addr_mode(as, ins, depth + 1, _supported, _len);
 		return;
-	} else if (_len == 0) {
+	} else if (_len == 0 && !is_expr && !found_not_expr) {
 		pb(as, tk);
 	} else if(ins->addr_mode == -1) {
 		tk_type_tostring(tk.type, str);
@@ -844,15 +845,20 @@ static void parse_start(assembler_t *as, tk_t t)
 
 program_t *parse(tokenizer_t *t)
 {
-	assembler_t as;
-	tk_t tk;
+	assembler_t	as;
+	program_t	*res;
+	tk_t		tk;
 
 	init_assembler(&as, t);
 
 	while (tk = next(&as), tk.type != TK_NULL) {
 		parse_start(&as, tk);
 	}
-	return NULL;
+	res = malloc(sizeof(program_t));
+	res->labels = as.labels;
+	res->sections = as.sections;
+	res->global_export_defs = as.globals;
+	return res;
 }
 
 static void print_deftype(def_t *d)
@@ -943,4 +949,9 @@ static void _print_constexpr(constexpr_t *exp, char *pre, bool final)
 void print_constexpr(constexpr_t *ex)
 {
 	_print_constexpr(ex, "", true);
+}
+
+void		program_free(program_t **p)
+{
+	return;
 }
