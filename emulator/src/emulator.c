@@ -350,6 +350,37 @@ void unop(emulator_t *em, int instr_size, perform_unop_t perform_op)
 	*reg = alu_res;
 }
 
+typedef u32_t (*perform_unop_with_ams_t)(emulator_t*, u16_t, u16_t);
+
+u32_t crb_unop_func(emulator_t *em, u16_t reg_data, u16_t ext_data)
+{
+	return reg_data & ~(1 << ext_data);
+}
+
+u32_t srb_unop_func(emulator_t *em, u16_t reg_data, u16_t ext_data)
+{
+	return reg_data | (1 << ext_data);
+}
+
+void unop_with_ams(emulator_t *em, int addr_mode, int instr_size, perform_unop_with_ams_t perform_op)
+{
+	u8_t reg_byte;
+	u16_t *reg;
+	u16_t rhs;
+	u32_t alu_res;
+
+	reg_byte = memory_read_byte(MEM, PC + 1);
+	reg = REGS + (reg_byte >> 4);
+
+	PC += instr_size;
+	rhs = data_from_addr_mode(em, addr_mode);
+
+	alu_res = perform_op(em, *reg, rhs);
+	set_zn_flags(em, alu_res);
+
+	*reg = alu_res;
+}
+
 typedef u64_t (*perform_unop_wide_t)(emulator_t*, u32_t);
 
 u64_t decw_unop_func(emulator_t *em, u32_t reg_data)
@@ -548,6 +579,22 @@ i32_t emulator_execute(emulator_t *em)
 		case SINSTR_INCW:
 			unop_wide(em, instruction_size[INSTR_INCW], incw_unop_func);
 			break;
+
+		#define SINSTR_CRB(addr_mode) case SINSTR_CRB_##addr_mode :
+		XMACRO_ADDRESSING_MODES(SINSTR_CRB)
+			addr_mode = opcode - INSTR_CRB + ADDR_MODE_IMMIDIATE;
+			unop_with_ams(em, addr_mode, instruction_size[INSTR_CRB], crb_unop_func);
+			break;
+		#undef SINSTR_CRB
+
+		#define SINSTR_SRB(addr_mode) case SINSTR_SRB_##addr_mode :
+		XMACRO_ADDRESSING_MODES(SINSTR_SRB)
+			addr_mode = opcode - INSTR_SRB + ADDR_MODE_IMMIDIATE;
+			unop_with_ams(em, addr_mode, instruction_size[INSTR_SRB], srb_unop_func);
+			break;
+		#undef SINSTR_SRB
+
+
 
 		case SINSTR_NOP:
 		 	PC += instruction_size[INSTR_NOP];
