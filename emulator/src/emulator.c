@@ -350,6 +350,40 @@ void unop(emulator_t *em, int instr_size, perform_unop_t perform_op)
 	*reg = alu_res;
 }
 
+typedef u64_t (*perform_unop_wide_t)(emulator_t*, u32_t);
+
+u64_t decw_unop_func(emulator_t *em, u32_t reg_data)
+{
+	return reg_data - 1;
+}
+
+u64_t incw_unop_func(emulator_t *em, u32_t reg_data)
+{
+	return reg_data + 1;
+}
+
+void unop_wide(emulator_t *em, int instr_size, perform_unop_wide_t perform_op_wide)
+{
+	u8_t reg_byte;
+	u16_t *reg_dh, *reg_dl;
+	u32_t lhs;
+	u64_t alu_res;
+
+	reg_byte = memory_read_byte(MEM, PC + 1);
+	reg_dh = REGS + (reg_byte >> 4);
+	reg_dl = REGS + (reg_byte & 0x0F);
+
+	lhs = (u32_t)(*reg_dh) << 16 | (u32_t)(*reg_dl);
+	PC += instr_size;
+
+	alu_res = perform_op_wide(em, lhs);
+
+	set_zn_flags_wide(em, alu_res);
+
+	*reg_dh = alu_res >> 16;
+	*reg_dl = alu_res & 0xFFFF;
+}
+
 i32_t emulator_execute(emulator_t *em)
 {
 	u8_t opcode;
@@ -506,11 +540,13 @@ i32_t emulator_execute(emulator_t *em)
 			unop(em, instruction_size[INSTR_DEC], dec_unop_func);
 			break;
 		case SINSTR_DECW:
+			unop_wide(em, instruction_size[INSTR_DECW], decw_unop_func);
 			break;
 		case SINSTR_INC:
 			unop(em, instruction_size[INSTR_INC], inc_unop_func);
 			break;
 		case SINSTR_INCW:
+			unop_wide(em, instruction_size[INSTR_INCW], incw_unop_func);
 			break;
 
 		case SINSTR_NOP:
