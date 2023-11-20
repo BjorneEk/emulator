@@ -415,7 +415,44 @@ void unop_wide(emulator_t *em, int instr_size, perform_unop_wide_t perform_op_wi
 	*reg_dl = alu_res & 0xFFFF;
 }
 
-i32_t emulator_execute(emulator_t *em)
+void cond_branch(emulator_t *em, int instr_size, bool should_branch)
+{
+	u8_t addr_byte;
+
+	addr_byte = memory_read_byte(MEM, PC + 1);
+
+	PC += instr_size;
+
+	if (should_branch) {
+		PC = PC + addr_byte;
+	}
+}
+
+void branch_on_bit_in_register(emulator_t *em, int instr_size, bool bit_should_be_set)
+{
+	u8_t value_reg_byte;
+	u8_t addr_byte;
+	u8_t value;
+	u16_t *reg_s;
+	bool bit_is_set, should_branch;
+
+	value_reg_byte = memory_read_byte(MEM, PC + 1);
+	addr_byte = memory_read_byte(MEM, PC + 2);
+
+	PC += instr_size;
+
+	value = value_reg_byte >> 4;
+	reg_s = REGS + (value_reg_byte & 0x0F);
+
+	bit_is_set = *reg_s & 1 << value; 
+	should_branch = bit_is_set == bit_should_be_set;
+
+	if (should_branch) {
+		PC += addr_byte;
+	}
+}
+
+int emulator_execute(emulator_t *em)
 {
 	u8_t opcode;
 	u8_t reg_byte;
@@ -425,8 +462,6 @@ i32_t emulator_execute(emulator_t *em)
 	int addr_mode;
 
 	opcode = memory_read_byte(MEM, PC);
-	printf("EXECUTING INSTRUCTION WITH OPCODE: %d\n", opcode);
-	printf("PC = %d\n", PC);
 
 	switch (opcode) {
 		#define SINSTR_LDR(addr_mode) case SINSTR_LDR_##addr_mode :
@@ -459,6 +494,34 @@ i32_t emulator_execute(emulator_t *em)
 
 			break;
 		#undef SINSTR_LDRB
+
+		case SINSTR_BZ:
+			cond_branch(em, instruction_size[INSTR_BZ], cpu_get_flag(em->cpu, FLAG_ZERO));
+			break;
+		case SINSTR_BNZ:
+			cond_branch(em, instruction_size[INSTR_BNZ], !cpu_get_flag(em->cpu, FLAG_ZERO));
+			break;
+		case SINSTR_BCC:
+			cond_branch(em, instruction_size[INSTR_BCC], !cpu_get_flag(em->cpu, FLAG_CARRY));
+			break;
+		case SINSTR_BCS:
+			cond_branch(em, instruction_size[INSTR_BCS], cpu_get_flag(em->cpu, FLAG_CARRY));
+			break;
+		case SINSTR_BRN:
+			cond_branch(em, instruction_size[INSTR_BRN], cpu_get_flag(em->cpu, FLAG_NEGATIVE));
+			break;
+		case SINSTR_BRP:
+			cond_branch(em, instruction_size[INSTR_BRP], !cpu_get_flag(em->cpu, FLAG_NEGATIVE));
+			break;
+		case SINSTR_BRA:
+			cond_branch(em, instruction_size[INSTR_BRA], true);
+			break;
+		case SINSTR_BBS:
+			branch_on_bit_in_register(em, instruction_size[INSTR_BBS], true);
+			break;
+		case SINSTR_BBC:
+			branch_on_bit_in_register(em, instruction_size[INSTR_BBC], false);
+			break;
 
 		case SINSTR_LBRA_ABS:
 		case SINSTR_LBRA_ABS_PTR:
@@ -593,8 +656,6 @@ i32_t emulator_execute(emulator_t *em)
 			unop_with_ams(em, addr_mode, instruction_size[INSTR_SRB], srb_unop_func);
 			break;
 		#undef SINSTR_SRB
-
-
 
 		case SINSTR_NOP:
 		 	PC += instruction_size[INSTR_NOP];
