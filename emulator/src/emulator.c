@@ -13,6 +13,48 @@
 #define PC (em->cpu->pc)
 #define SP (em->cpu->regs[REG_STACK_POINTER])
 
+static u8_t fetch_byte(emulator_t *em)
+{
+	u8_t byte_res; 
+
+	byte_res = memory_read_byte(em->mem, em->cpu->pc);
+	em->cpu->pc += 1;
+
+	return byte_res;
+}
+
+static u16_t fetch_word(emulator_t *em)
+{
+	u16_t word_res;
+
+	word_res = memory_read_word(em->mem, em->cpu->pc);
+	em->cpu->pc += 2;
+
+	return word_res;
+}
+
+static u32_t fetch_long(emulator_t *em)
+{
+	u32_t long_res;
+
+	long_res = memory_read_long(em->mem, em->cpu->pc);
+	em->cpu->pc += 4;
+
+	return long_res;
+}
+
+static void fetch_two_registers_from_byte(emulator_t *em, u16_t **reg_h, u16_t **reg_l)
+{
+	u8_t reg_byte;
+
+	reg_byte = fetch_byte(em);
+
+	if (reg_h != NULL)
+		*reg_h = em->cpu->regs + (reg_byte >> 4);
+	if (reg_l != NULL)
+		*reg_l = em->cpu->regs + (reg_byte & 0x0F);
+}
+
 emulator_t *new_emulator(cpu_t *cpu, memory_t *mem)
 {
 	emulator_t *res;
@@ -128,27 +170,27 @@ static u32_t long_from_addr_mode(emulator_t *em, addressing_mode_t addr_mode)
 	return memory_read_long(MEM, addr);
 }
 
-static void set_zn_flags(emulator_t *em, u16_t val)
+static void set_zn_flags(emulator_t *em, u16_t alu_res)
 {
-	if (val == 0)
+	if (alu_res == 0)
 		cpu_set_flag(em->cpu, FLAG_ZERO);
 	else
 		cpu_clear_flag(em->cpu, FLAG_ZERO);
 
-	if ((i16_t)val < 0)
+	if ((i16_t)alu_res < 0)
 		cpu_set_flag(em->cpu, FLAG_NEGATIVE);
 	else
 		cpu_clear_flag(em->cpu, FLAG_NEGATIVE);
 }
 
-static void set_zn_flags_wide(emulator_t *em, u32_t val)
+static void set_zn_flags_wide(emulator_t *em, u32_t alu_res)
 {
-	if (val == 0)
+	if (alu_res == 0)
 		cpu_set_flag(em->cpu, FLAG_ZERO);
 	else
 		cpu_clear_flag(em->cpu, FLAG_ZERO);
 
-	if ((i32_t)val < 0)
+	if ((i32_t)alu_res < 0)
 		cpu_set_flag(em->cpu, FLAG_NEGATIVE);
 	else
 		cpu_clear_flag(em->cpu, FLAG_NEGATIVE);
@@ -216,18 +258,14 @@ u32_t and_binop_func(emulator_t *em, u16_t reg_data, u16_t ext_data)
 	return reg_data & ext_data;
 }
 
-void binop(emulator_t *em, int addr_mode, int instr_size, perform_binop_t perform_op)
+void binop(emulator_t *em, int addr_mode, perform_binop_t perform_op)
 {
 	u8_t reg_byte;
 	u16_t *reg_d, *reg_s;
 	u16_t rhs;
 	u32_t alu_res;
 
-	reg_byte = memory_read_byte(MEM, PC + 1);
-	reg_d = REGS + (reg_byte >> 4);
-	reg_s = REGS + (reg_byte & 0x0F);
-
-	PC += instr_size;
+	fetch_two_registers_from_byte(em, &reg_d, &reg_s);
 
 	rhs = word_from_addr_mode(em, addr_mode);
 	alu_res = perform_op(em, *reg_s, rhs);
@@ -268,7 +306,7 @@ u64_t subw_binop_func(emulator_t *em, u32_t reg_data, u16_t ext_data)
 	return addw_binop_func(em, reg_data, (u16_t)-ext_data);
 }
 
-void binop_wide(emulator_t *em, int addr_mode, int instr_size, perform_binop_wide_t perform_op_wide)
+void binop_wide(emulator_t *em, int addr_mode, perform_binop_wide_t perform_op_wide)
 {
 	u8_t reg_byte;
 	u16_t *reg_dh, *reg_dl;
@@ -276,12 +314,9 @@ void binop_wide(emulator_t *em, int addr_mode, int instr_size, perform_binop_wid
 	u16_t rhs;
 	u64_t alu_res;
 
-	reg_byte = memory_read_byte(MEM, PC + 1);
-	reg_dh = REGS + (reg_byte >> 4);
-	reg_dl = REGS + (reg_byte & 0x0F);
+	fetch_two_registers_from_byte(em, &reg_dh, &reg_dl);
 
 	lhs = (u32_t)(*reg_dh) << 16 | (u32_t)(*reg_dl);
-	PC += instr_size;
 
 	rhs = word_from_addr_mode(em, addr_mode);
 	alu_res = perform_op_wide(em, lhs, rhs);
@@ -350,8 +385,7 @@ void unop(emulator_t *em, int instr_size, perform_unop_t perform_op)
 	u16_t *reg;
 	u32_t alu_res;
 
-	reg_byte = memory_read_byte(MEM, PC + 1);
-	reg = REGS + (reg_byte >> 4);
+	fetch_two_registers_from_byte(em, &reg, NULL);
 
 	PC += instr_size;
 
@@ -559,7 +593,7 @@ int emulator_execute(emulator_t *em)
 	u8_t opcode;
 	int addr_mode;
 
-	opcode = memory_read_byte(MEM, PC);
+	opcode = fetch_byte(em);
 
 	switch (opcode) {
 		#define SINSTR_LDR(addr_mode) case SINSTR_LDR_##addr_mode :
@@ -662,83 +696,83 @@ int emulator_execute(emulator_t *em)
 			break;
 		
 		case SINSTR_RTI:
-			printf("unsure how to handle CPRP\n");
+			printf("unsure how to handle RTI\n");
 			break;
 
 		#define SINSTR_ADC(addr_mode) case SINSTR_ADC_##addr_mode :
 		XMACRO_ADDRESSING_MODES(SINSTR_ADC)
 			addr_mode = opcode - INSTR_ADC + ADDR_MODE_IMMIDIATE;
-			binop(em, addr_mode, instruction_size[INSTR_ADC], adc_binop_func);
+			binop(em, addr_mode, adc_binop_func);
 			break;
 		#undef SINSTR_ADC
 
 		#define SINSTR_ADD(addr_mode) case SINSTR_ADD_##addr_mode :
 		XMACRO_ADDRESSING_MODES(SINSTR_ADD)
 			addr_mode = opcode - INSTR_ADD + ADDR_MODE_IMMIDIATE;
-			binop(em, addr_mode, instruction_size[INSTR_ADD], add_binop_func);
+			binop(em, addr_mode, add_binop_func);
 			break;
 		#undef SINSTR_ADD
 
 		#define SINSTR_ADCW(addr_mode) case SINSTR_ADCW_##addr_mode :
 		XMACRO_ADDRESSING_MODES(SINSTR_ADCW)
 			addr_mode = opcode - INSTR_ADCW + ADDR_MODE_IMMIDIATE;
-			binop_wide(em, addr_mode, instruction_size[INSTR_ADCW], adcw_binop_func);
+			binop_wide(em, addr_mode, adcw_binop_func);
 			break;
 		#undef SINSTR_ADCW
 
 		#define SINSTR_ADDW(addr_mode) case SINSTR_ADDW_##addr_mode :
 		XMACRO_ADDRESSING_MODES(SINSTR_ADDW)
 			addr_mode = opcode - INSTR_ADDW + ADDR_MODE_IMMIDIATE;
-			binop_wide(em, addr_mode, instruction_size[INSTR_ADDW], addw_binop_func);
+			binop_wide(em, addr_mode, addw_binop_func);
 			break;
 		#undef SINSTR_ADDW
 
 		#define SINSTR_SBC(addr_mode) case SINSTR_SBC_##addr_mode :
 		XMACRO_ADDRESSING_MODES(SINSTR_SBC)
 			addr_mode = opcode - INSTR_SBC + ADDR_MODE_IMMIDIATE;
-			binop(em, addr_mode, instruction_size[INSTR_SBC], sbc_binop_func);
+			binop(em, addr_mode, sbc_binop_func);
 			break;
 		#undef SINSTR_SBC
 
 		#define SINSTR_SUB(addr_mode) case SINSTR_SUB_##addr_mode :
 		XMACRO_ADDRESSING_MODES(SINSTR_SUB)
 			addr_mode = opcode - INSTR_SUB + ADDR_MODE_IMMIDIATE;
-			binop(em, addr_mode, instruction_size[INSTR_SUB], sub_binop_func);
+			binop(em, addr_mode, sub_binop_func);
 			break;
 		#undef SINSTR_SUB
 
 		#define SINSTR_SBCW(addr_mode) case SINSTR_SBCW_##addr_mode :
 		XMACRO_ADDRESSING_MODES(SINSTR_SBCW)
 			addr_mode = opcode - INSTR_SBCW + ADDR_MODE_IMMIDIATE;
-			binop_wide(em, addr_mode, instruction_size[INSTR_SBCW], sbcw_binop_func);
+			binop_wide(em, addr_mode, sbcw_binop_func);
 			break;
 		#undef SINSTR_SBCW
 
 		#define SINSTR_SUBW(addr_mode) case SINSTR_SUBW_##addr_mode :
 		XMACRO_ADDRESSING_MODES(SINSTR_SUBW)
 			addr_mode = opcode - INSTR_SUBW + ADDR_MODE_IMMIDIATE;
-			binop_wide(em, addr_mode, instruction_size[INSTR_SUBW], subw_binop_func);
+			binop_wide(em, addr_mode, subw_binop_func);
 			break;
 		#undef SINSTR_SBCW
 
 		#define SINSTR_EOR(addr_mode) case SINSTR_EOR_##addr_mode :
 		XMACRO_ADDRESSING_MODES(SINSTR_EOR)
 			addr_mode = opcode - INSTR_EOR + ADDR_MODE_IMMIDIATE;
-			binop(em, addr_mode, instruction_size[INSTR_EOR], eor_binop_func);
+			binop(em, addr_mode, eor_binop_func);
 			break;
 		#undef SINSTR_EOR
 
 		#define SINSTR_ORR(addr_mode) case SINSTR_ORR_##addr_mode :
 		XMACRO_ADDRESSING_MODES(SINSTR_ORR)
 			addr_mode = opcode - INSTR_ORR + ADDR_MODE_IMMIDIATE;
-			binop(em, addr_mode, instruction_size[INSTR_ORR], orr_binop_func);
+			binop(em, addr_mode, orr_binop_func);
 			break;
 		#undef SINSTR_ORR
 
 		#define SINSTR_AND(addr_mode) case SINSTR_AND_##addr_mode :
 		XMACRO_ADDRESSING_MODES(SINSTR_AND)
 			addr_mode = opcode - INSTR_AND + ADDR_MODE_IMMIDIATE;
-			binop(em, addr_mode, instruction_size[INSTR_ADD], and_binop_func);
+			binop(em, addr_mode, and_binop_func);
 			break;
 		#undef SINSTR_AND
 
