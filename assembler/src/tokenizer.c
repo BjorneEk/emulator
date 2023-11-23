@@ -21,6 +21,7 @@
 
 typedef struct tokenizer {
 
+	fstack_t	*files;
 	file_t		*file;
 
 	int		line;
@@ -52,7 +53,19 @@ static inline tpos_t tpos(tokenizer_t *t)
 
 static inline int next(tokenizer_t *t)
 {
-	return fnext(t->file);
+	int res;
+
+	res = fnext(t->file);
+	if (res == EOF && t->files != NULL) {
+		t->file = pop_file(&t->files);
+		t->column = 0;
+		t->line = 0;
+		fgetpos(t->file->fp, &t->line_pos);
+		t->prevline_pos = t->line_pos;
+		t->has_pb = false;
+		return next(t);
+	}
+	return res;
 }
 
 static inline void pb(tokenizer_t *t, int c)
@@ -910,12 +923,15 @@ tk_t		tk_next(tokenizer_t *t)
 	return res;
 }
 
-tokenizer_t	*new_tokenizer(file_t *file)
+tokenizer_t	*new_tokenizer(fstack_t **files)
 {
 	tokenizer_t *res;
 
 	res	= malloc(sizeof(tokenizer_t));
-	res->file = file;
+	res->files = *files;
+	ASSERT_(files != NULL, "no files supplied when creating tokenizer");
+
+	res->file = pop_file(&res->files);
 
 	res->line	= 0;
 	res->column	= 0;

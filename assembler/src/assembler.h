@@ -84,12 +84,14 @@ typedef struct asm_entry {
 
 		};
 
-		union {
+		struct {
 			int		array_type;
 			int		data_size;
-			constexpr_t	*data_value;
-			dla_t		*array_values;	/* constexpr_t* */
-			char		*string;
+			union {
+				constexpr_t	*data_value;
+				dla_t		*array_values;	/* constexpr_t* */
+				char		*string;
+			};
 		};
 	};
 

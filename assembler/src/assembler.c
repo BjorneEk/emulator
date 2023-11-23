@@ -142,6 +142,8 @@ static asm_t *new_data(assembler_t *as, tk_t tk, int type, int array_type)
 	if (type == DATA_ARRAY) {
 		res->array_values = DLA_new(sizeof(constexpr_t*), 5);
 		size_type = array_type;
+	} else if (type == DATA_STRING) {
+		size_type = DATA_BYTE;
 	}
 	res->data_size = type_size(size_type);
 	return res;
@@ -784,6 +786,7 @@ static void parse_data_lit(assembler_t *as, tk_t prev)
 
 	if (prev.type == TK_STRING) {
 		res = new_data(as, tk, DATA_STRING, DATA_BYTE);
+		pb(as, tk);
 		parse_string_data(as, res);
 		return;
 	}

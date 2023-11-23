@@ -29,7 +29,7 @@ typedef struct node_name##_s { value_type val; struct node_name##_s *next; } nod
 static node_name *prefix_name##_new_queue_node_(value_type val)				\
 {											\
 	node_name *res;									\
-	res = malloc(sizeof(node_name));						\
+	res = (node_name*)malloc(sizeof(node_name));					\
 	res->val = val;									\
 	res->next = NULL;								\
 	return res;									\
@@ -83,7 +83,7 @@ typedef struct node_name##_s { value_type val; struct node_name##_s *next; } nod
 static node_name *prefix_name##_new_stack_node_(value_type val)				\
 {											\
 	node_name *res;									\
-	res = malloc(sizeof(node_name));						\
+	res = (node_name*)malloc(sizeof(node_name));					\
 	res->val = val;									\
 	res->next = NULL;								\
 	return res;									\
@@ -116,7 +116,7 @@ typedef struct node_name##_s { value_type val; struct node_name##_s *next; } nod
 static node_name *prefix_name##_new_queue_node_(value_type val)				\
 {											\
 	node_name *res;									\
-	res = malloc(sizeof(node_name));						\
+	res = (node_name*)malloc(sizeof(node_name));					\
 	res->val = val;									\
 	res->next = NULL;								\
 	return res;									\
@@ -170,7 +170,7 @@ typedef struct node_name##_s { value_type val; struct node_name##_s *next; } nod
 static node_name *prefix_name##_new_stack_node_(value_type val)				\
 {											\
 	node_name *res;									\
-	res = malloc(sizeof(node_name));						\
+	res = (node_name*)malloc(sizeof(node_name));					\
 	res->val = val;									\
 	res->next = NULL;								\
 	return res;									\
