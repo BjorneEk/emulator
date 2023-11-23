@@ -239,7 +239,7 @@ static void test_instruction(const struct ins_test *ins)
 		ftemp_with(&tmp, EXT_ASM_FILE, ".section:\n	%s\n", ins_str);
 		tk = tk_from_file(&tmp);
 		p = parse(tk);
-		section = HMAP_get(p->sections, "section", 7);
+		section = DLA_get(p->sections, 0);
 		TEST_QUIET(section != NULL, "section found (%s)", ins->inp);
 		TEST_QUIET(section->data->len == 1, "section length == 1 (%s)", ins->inp);
 		data = *(asm_t**)DLA_get(section->data, 0);
@@ -272,7 +272,7 @@ static void test_instruction(const struct ins_test *ins)
 		ftemp_with(&tmp, EXT_ASM_FILE, ".section:\n	%s\n", ins_str);
 		tk = tk_from_file(&tmp);
 		p = parse(tk);
-		section = HMAP_get(p->sections, "section", 7);
+		section = DLA_get(p->sections, 0);
 		TEST_QUIET(section != NULL, "section found (%s)", ins_str);
 		TEST_QUIET(section->data->len == 1, "section length == 1 (%s)", ins_str);
 		data = *(asm_t**)DLA_get(section->data, 0);

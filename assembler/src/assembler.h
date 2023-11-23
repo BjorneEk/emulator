@@ -22,7 +22,6 @@ enum parser_types {
 	DATA_STRING,
 
 	DEF_UNDEFINED = TK_LAST,
-	DEF_UNDEFINED_REF,
 	DEF_SECTION,
 	DEF_ABSOLUTE,
 	DEF_DEFINED,
@@ -33,11 +32,8 @@ typedef struct constexpr constexpr_t;
 
 typedef struct def {
 	int		type;
-	bool		is_global;
 	char		*lbl;
-	constexpr_t	*val;
-	bool		ready;
-	dla_t		*refs; /* constexpr_t* */
+	int		val;
 	tk_t		tk;
 } def_t;
 
@@ -56,11 +52,13 @@ typedef struct constexpr {
 } constexpr_t;
 
 typedef struct section {
+
 	dla_t		*data;	/* asm_t* */
-	hashmap_t	*labels;
+	hashmap_t	*labels; /* def_t* */
 	int		size;
 	tk_t		tk;
 	bool		has_raw_data;
+	u32_t		begin_addr;
 } section_t;
 
 
@@ -68,15 +66,20 @@ typedef struct section {
 typedef struct asm_entry {
 
 	int	type;
-	int	rel_addr;
+	u32_t	rel_addr;
 	tk_t	token;
-
 	union {
 		struct {
 			int		instruction;
 			int		addr_mode;
-			constexpr_t	*value;
-			constexpr_t	*bit;			/* used by bbc and bbs */
+			union {
+				constexpr_t	*value;
+				int		evaluated_value;
+			};
+			union {
+				constexpr_t	*bit;		/* used by bbc and bbs */
+				int		evaluated_bit;
+			};
 			int		regs[ASM_REG_COUNT];
 			int		nregs;
 			int		instruction_size;
@@ -89,7 +92,12 @@ typedef struct asm_entry {
 			int		data_size;
 			union {
 				constexpr_t	*data_value;
+				int		evaluated_data_value;
 				dla_t		*array_values;	/* constexpr_t* */
+				struct {
+					int	*evaluated_array;
+					int	evaluated_array_len;
+				};
 				char		*string;
 			};
 		};
@@ -98,9 +106,8 @@ typedef struct asm_entry {
 } asm_t;
 
 typedef struct program {
-	dla_t		*global_export_defs;	/* def_t*		*/
-	hashmap_t	*sections;		/* char*->section_t*	*/
-	hashmap_t	*labels;		/* char*->def_t*	*/
+	dla_t		*sections;	/*	section_t*		*/
+	hashmap_t	*labels;	/*	(char* -> def_t*)	*/
 } program_t;
 
 

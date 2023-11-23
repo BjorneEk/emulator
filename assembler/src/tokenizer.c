@@ -252,7 +252,7 @@ static void print_debug_lines(FILE *f, tpos_t tpos, int tklen)
 		return;
 	}
 
-	org = fgetpos(tpos.file->fp, &org);
+	fgetpos(tpos.file->fp, &org);
 
 	fsetpos(tpos.file->fp, &tpos.prevline_pos);
 
@@ -962,7 +962,7 @@ void _tk_rev(tokenizer_t *tk, tk_t t)
 }
 void tk_rev(tokenizer_t *tk, tk_t t)
 {
-	//printf("Putback: ");
+	//BUG("Putback: ");
 	//tk_print(t);
 	_tk_rev(tk, t);
 }
