@@ -43,7 +43,7 @@ static u32_t fetch_long(emulator_t *em)
 	return long_res;
 }
 
-static void fetch_two_registers_from_byte(emulator_t *em, u16_t **reg_h, u16_t **reg_l)
+static void fetch_regs(emulator_t *em, u16_t **reg_h, u16_t **reg_l)
 {
 	u8_t reg_byte;
 
@@ -97,6 +97,10 @@ static u32_t addr_from_addr_mode(emulator_t *em , addressing_mode_t addr_mode)
 			b0 = memory_read_byte(MEM, PC);
 			addr = PC + b0;
 			break;
+		case ADDR_MODE_IMMIDIATE:
+			break;
+		case ADDR_MODE_REG:
+			break;
 		case ADDR_MODE_ABS:
 			addr = memory_read_long(MEM, PC);
 			break;
@@ -134,40 +138,33 @@ static u32_t addr_from_addr_mode(emulator_t *em , addressing_mode_t addr_mode)
 			b0 = memory_read_byte(MEM, PC);
 			addr = REGS[b0 >> 4] + REGS[b0 & 0x0F];
 			break;
-		case ADDR_MODE_IMMIDIATE:
-		case ADDR_MODE_REG:
 		case ADDR_MODE_NULL:
 			addr = 0;
 			break;
 	}
-	PC += addressing_mode_size[addr_mode];
 	return addr;
 }
 
 static u16_t word_from_addr_mode(emulator_t *em, addressing_mode_t addr_mode)
 {
-	u16_t res;
 	u32_t addr;
 
 	if (addr_mode == ADDR_MODE_IMMIDIATE) {
-		res = memory_read_word(MEM, PC);
+		return memory_read_word(MEM, PC);
 	} else if (addr_mode == ADDR_MODE_REG) {
-		res = REGS[memory_read_byte(MEM, PC) >> 4];
+		return REGS[memory_read_byte(MEM, PC) >> 4];
 	} else {
 		addr = addr_from_addr_mode(em, addr_mode);
-		res = memory_read_word(MEM, addr);
+		return memory_read_word(MEM, addr);
 	}
-
-	return res;
 }
 
 static u32_t long_from_addr_mode(emulator_t *em, addressing_mode_t addr_mode)
 {
-	u32_t res;
 	u32_t addr;
 
 	addr = addr_from_addr_mode(em, addr_mode);
-	return memory_read_long(MEM, addr);
+	return memory_read_long(em->mem, addr);
 }
 
 static void set_zn_flags(emulator_t *em, u16_t alu_res)
@@ -260,12 +257,11 @@ u32_t and_binop_func(emulator_t *em, u16_t reg_data, u16_t ext_data)
 
 void binop(emulator_t *em, int addr_mode, perform_binop_t perform_op)
 {
-	u8_t reg_byte;
 	u16_t *reg_d, *reg_s;
 	u16_t rhs;
 	u32_t alu_res;
 
-	fetch_two_registers_from_byte(em, &reg_d, &reg_s);
+	fetch_regs(em, &reg_d, &reg_s);
 
 	rhs = word_from_addr_mode(em, addr_mode);
 	alu_res = perform_op(em, *reg_s, rhs);
@@ -308,13 +304,12 @@ u64_t subw_binop_func(emulator_t *em, u32_t reg_data, u16_t ext_data)
 
 void binop_wide(emulator_t *em, int addr_mode, perform_binop_wide_t perform_op_wide)
 {
-	u8_t reg_byte;
 	u16_t *reg_dh, *reg_dl;
 	u32_t lhs;
 	u16_t rhs;
 	u64_t alu_res;
 
-	fetch_two_registers_from_byte(em, &reg_dh, &reg_dl);
+	fetch_regs(em, &reg_dh, &reg_dl);
 
 	lhs = (u32_t)(*reg_dh) << 16 | (u32_t)(*reg_dl);
 
@@ -327,262 +322,164 @@ void binop_wide(emulator_t *em, int addr_mode, perform_binop_wide_t perform_op_w
 	*reg_dl = alu_res & 0xFFFF;
 }
 
-typedef u32_t (*perform_unop_t)(emulator_t*, u16_t);
-
-u32_t asr_unop_func(emulator_t *em, u16_t reg_data)
+void unop(emulator_t *em, int ins, int addr_mode)
 {
-	u32_t alu_res;
-
-	alu_res = reg_data >> 1;
-	set_zn_flags(em, alu_res);
-	return alu_res;
-}
-
-u32_t lsr_unop_func(emulator_t *em, u16_t reg_data)
-{
-	return reg_data >> 1;
-}
-
-u32_t lsl_unop_func(emulator_t *em, u16_t reg_data)
-{
-	return reg_data << 1;
-}
-
-u32_t not_unop_func(emulator_t *em, u16_t reg_data)
-{
-	u32_t alu_res;
-
-	alu_res = ~reg_data;
-	set_zn_flags(em, alu_res);
-	return alu_res;
-}
-
-u32_t dec_unop_func(emulator_t *em, u16_t reg_data)
-{
-	u32_t alu_res;
-
-	alu_res = reg_data -= 1;
-	// maybe something about carry here
-
-	set_zn_flags(em, alu_res);
-	return alu_res;
-}
-
-u32_t inc_unop_func(emulator_t *em, u16_t reg_data)
-{
-	u32_t alu_res;
-
-	alu_res = reg_data += 1;
-	// maybe something about carry here
-
-	set_zn_flags(em, alu_res);
-	return alu_res;
-}
-
-void unop(emulator_t *em, int instr_size, perform_unop_t perform_op)
-{
-	u8_t reg_byte;
 	u16_t *reg;
 	u32_t alu_res;
 
-	fetch_two_registers_from_byte(em, &reg, NULL);
+	fetch_regs(em, &reg, NULL);
 
-	PC += instr_size;
+	switch (ins) {
+		case INSTR_ASR:
+			alu_res = *reg >> 1;
+			set_zn_flags(em, alu_res);
+			break;
+		case INSTR_LSR:
+			alu_res = *reg >> 1;
+			break;
+		case INSTR_LSL:
+			alu_res = *reg << 1;
+			break;
+		case INSTR_NOT:
+			alu_res = ~*reg;
+			set_zn_flags(em, alu_res);
+			break;
+		case INSTR_DEC:
+			alu_res = *reg - 1;
+			set_zn_flags(em, alu_res);
+			break;
+		case INSTR_INC:
+			alu_res = *reg + 1;
+			set_zn_flags(em, alu_res);
+			break;
+		case INSTR_CRB:
+			alu_res = *reg & ~(1 << word_from_addr_mode(em, addr_mode));
+			set_zn_flags(em, alu_res);
+			break;	
+		case INSTR_SRB:
+			alu_res = *reg | (1 << word_from_addr_mode(em, addr_mode));
+			set_zn_flags(em, alu_res);
+			break;	
+	
+		default:
+			printf("not a unop: %d\n", ins);
+			break;
+	}
 
-	alu_res = perform_op(em, *reg);
-
-	*reg = alu_res;
+	*reg = (u16_t)alu_res;
 }
 
-typedef u32_t (*perform_unop_with_ams_t)(emulator_t*, u16_t, u16_t);
-
-u32_t crb_unop_func(emulator_t *em, u16_t reg_data, u16_t ext_data)
+void unop_wide(emulator_t *em, int ins)
 {
-	return reg_data & ~(1 << ext_data);
-}
-
-u32_t srb_unop_func(emulator_t *em, u16_t reg_data, u16_t ext_data)
-{
-	return reg_data | (1 << ext_data);
-}
-
-void unop_with_ams(emulator_t *em, int addr_mode, int instr_size, perform_unop_with_ams_t perform_op)
-{
-	u8_t reg_byte;
-	u16_t *reg;
-	u16_t rhs;
-	u32_t alu_res;
-
-	reg_byte = memory_read_byte(MEM, PC + 1);
-	reg = REGS + (reg_byte >> 4);
-
-	PC += instr_size;
-	rhs = word_from_addr_mode(em, addr_mode);
-
-	alu_res = perform_op(em, *reg, rhs);
-	set_zn_flags(em, alu_res);
-
-	*reg = alu_res;
-}
-
-typedef u64_t (*perform_unop_wide_t)(emulator_t*, u32_t);
-
-u64_t decw_unop_func(emulator_t *em, u32_t reg_data)
-{
-	return reg_data - 1;
-}
-
-u64_t incw_unop_func(emulator_t *em, u32_t reg_data)
-{
-	return reg_data + 1;
-}
-
-void unop_wide(emulator_t *em, int instr_size, perform_unop_wide_t perform_op_wide)
-{
-	u8_t reg_byte;
 	u16_t *reg_dh, *reg_dl;
 	u32_t lhs;
 	u64_t alu_res;
 
-	reg_byte = memory_read_byte(MEM, PC + 1);
-	reg_dh = REGS + (reg_byte >> 4);
-	reg_dl = REGS + (reg_byte & 0x0F);
+	fetch_regs(em, &reg_dh, &reg_dl);
 
 	lhs = (u32_t)(*reg_dh) << 16 | (u32_t)(*reg_dl);
-	PC += instr_size;
 
-	alu_res = perform_op_wide(em, lhs);
+	switch (ins) {
+		case INSTR_DECW:
+			alu_res = lhs - 1;
+			set_zn_flags_wide(em, alu_res);
+			break;
+		case INSTR_INCW:
+			alu_res = lhs + 1;
+			set_zn_flags_wide(em, alu_res);
+			break;
 
-	set_zn_flags_wide(em, alu_res);
+		default:
+			printf("not a wide unop: %d\n", ins);
+			break;
+	}
 
 	*reg_dh = alu_res >> 16;
 	*reg_dl = alu_res & 0xFFFF;
 }
 
-void cond_branch(emulator_t *em, int instr_size, bool should_branch)
+void cond_branch(emulator_t *em, bool should_branch)
 {
-	u8_t addr_byte;
-
-	addr_byte = memory_read_byte(MEM, PC + 1);
-
-	PC += instr_size;
-
 	if (should_branch) {
-		PC = PC + addr_byte;
+		em->cpu->pc += fetch_byte(em);
 	}
 }
 
-void branch_on_bit_in_register(emulator_t *em, int instr_size, bool bit_should_be_set)
+void branch_on_bit_in_register(emulator_t *em, bool bit_should_be_set)
 {
 	u8_t value_reg_byte;
-	u8_t addr_byte;
 	u8_t value;
-	u16_t *reg_s;
-	bool bit_is_set, should_branch;
+	u16_t reg;
 
-	value_reg_byte = memory_read_byte(MEM, PC + 1);
-	addr_byte = memory_read_byte(MEM, PC + 2);
-
-	PC += instr_size;
+	value_reg_byte = fetch_byte(em);
 
 	value = value_reg_byte >> 4;
-	reg_s = REGS + (value_reg_byte & 0x0F);
+	reg = em->cpu->regs[value_reg_byte & 0x0F];
 
-	bit_is_set = *reg_s & 1 << value; 
-	should_branch = bit_is_set == bit_should_be_set;
-
-	if (should_branch) {
-		PC += addr_byte;
-	}
+	cond_branch(em, (reg & 1 << value) == bit_should_be_set);
 }
 
-void load_register(emulator_t *em, int instr_size, int addr_mode, bool is_byte)
+void load_register(emulator_t *em, int addr_mode, bool is_byte)
 {
-	u8_t reg_byte;
-	u16_t *reg_d;
+	u16_t *reg;
 	u16_t data;
 
-	reg_byte = memory_read_byte(MEM, PC + 1);
-	reg_d = REGS + (reg_byte >> 4);
-
-	PC += instr_size;
+	fetch_regs(em, &reg, NULL);
 
 	data = word_from_addr_mode(em, addr_mode);
 
-	*reg_d = is_byte ? data >> 8 : data;
+	*reg = is_byte ? data >> 8 : data;
 }
 
-void load_register_wide(emulator_t *em, int instr_size, int addr_mode)
+void load_register_wide(emulator_t *em, int addr_mode)
 {
-	u8_t reg_byte;
 	u16_t *reg_h, *reg_l;
 	u32_t long_data;
 
-	reg_byte = memory_read_byte(MEM, PC + 1);
-	reg_h = REGS + (reg_byte >> 4);
-	reg_l = REGS + (reg_byte & 0x0F);
-
-	PC += instr_size;
+	fetch_regs(em, &reg_h, &reg_l);
 
 	long_data = long_from_addr_mode(em, addr_mode);
+
 	*reg_h = long_data >> 16;
 	*reg_l = long_data & 0x00FF;
 }
 
-void store_register(emulator_t *em, int instr_size, int addr_mode, bool is_byte)
+void store_register(emulator_t *em, int addr_mode, bool is_byte)
 {
-	u8_t reg_byte;
-	u16_t *reg_s;
+	u16_t *reg;
 	u32_t addr;
 
-	reg_byte = memory_read_byte(MEM, PC + 1);
-	reg_s = REGS + (reg_byte >> 4);
-
-	PC += instr_size;
+	fetch_regs(em, &reg, NULL);
 
 	addr = addr_from_addr_mode(em, addr_mode);
 
 	if (is_byte) {
-		memory_write_byte(MEM, addr, *reg_s & 0x0F);
+		memory_write_byte(em->mem, addr, *reg & 0x0F);
 	} else {
-		memory_write_word(MEM, addr, *reg_s);
+		memory_write_word(em->mem, addr, *reg);
 	}
 }
 
-void call_to_subroutine(emulator_t *em, int instr_size, int addr_mode)
+void call_to_subroutine(emulator_t *em, u32_t addr)
 {
-	u32_t addr;
+	em->cpu->regs[REG_STACK_POINTER] -= 4;
+	memory_write_long(em->mem, em->cpu->regs[REG_STACK_POINTER], em->cpu->pc);
 
-	PC += instr_size;
-
-	addr = addr_from_addr_mode(em, addr_mode);
-
-	SP -= 4;
-	memory_write_long(MEM, SP, PC);
-
-	PC = addr;
+	em->cpu->pc = addr;
 }
 
 void return_from_subroutine(emulator_t *em)
 {
-	PC = memory_read_long(MEM, SP);
-	SP += 4;
+	em->cpu->pc = memory_read_long(em->mem, em->cpu->regs[REG_STACK_POINTER]);
+	em->cpu->regs[REG_STACK_POINTER] += 4;
 }
 
-void copy_register_pair(emulator_t *em, int instr_size)
+void copy_register_pair(emulator_t *em)
 {
-	u8_t first_reg_byte, second_reg_byte;
 	u16_t *reg_dh, *reg_dl, *reg_sh, *reg_sl;
 
-	first_reg_byte = memory_read_byte(MEM, PC + 1);
-	second_reg_byte = memory_read_byte(MEM, PC + 2);
-
-	PC += instr_size;
-
-	reg_dh = REGS + (first_reg_byte >> 4);
-	reg_dl = REGS + (first_reg_byte & 0x0F);
-	reg_sh = REGS + (second_reg_byte >> 4);
-	reg_sl = REGS + (second_reg_byte & 0x0F);
+	fetch_regs(em, &reg_dh, &reg_dl);
+	fetch_regs(em, &reg_sh, &reg_sl);
 
 	*reg_dh = *reg_sh;
 	*reg_dl = *reg_sl;
@@ -599,14 +496,14 @@ int emulator_execute(emulator_t *em)
 		#define SINSTR_LDR(addr_mode) case SINSTR_LDR_##addr_mode :
 		XMACRO_ADDRESSING_MODES(SINSTR_LDR)
 			addr_mode = opcode - INSTR_LDR + ADDR_MODE_IMMIDIATE;
-			load_register(em, instruction_size[INSTR_LDR], addr_mode, false);
+			load_register(em, addr_mode, false);
 			break;
 		#undef SINSTR_LDR
 
 		#define SINSTR_LDRB(addr_mode) case SINSTR_LDRB_##addr_mode :
 		XMACRO_ADDRESSING_MODES(SINSTR_LDRB)
 			addr_mode = opcode - INSTR_LDRB + ADDR_MODE_IMMIDIATE;
-			load_register(em, instruction_size[INSTR_LDRB], addr_mode, true);
+			load_register(em, addr_mode, true);
 			break;
 		#undef SINSTR_LDRB
 
@@ -619,7 +516,7 @@ int emulator_execute(emulator_t *em)
 		case SINSTR_LDRW_ZP_OFF:
 		case SINSTR_LDRW_ZP_IDX:
 			addr_mode = opcode - INSTR_LDRW + ADDR_MODE_ABS;
-			load_register_wide(em, instruction_size[INSTR_LDRW], addr_mode);
+			load_register_wide(em, addr_mode);
 			break;
 
 		case SINSTR_STR_ABS:
@@ -631,7 +528,7 @@ int emulator_execute(emulator_t *em)
 		case SINSTR_STR_ZP_OFF:
 		case SINSTR_STR_ZP_IDX:
 			addr_mode = opcode - INSTR_STR + ADDR_MODE_ABS;
-			store_register(em, instruction_size[INSTR_STR], addr_mode, false);
+			store_register(em, addr_mode, false);
 			break;
 
 		case SINSTR_STRB_ABS:
@@ -643,52 +540,52 @@ int emulator_execute(emulator_t *em)
 		case SINSTR_STRB_ZP_OFF:
 		case SINSTR_STRB_ZP_IDX:
 			addr_mode = opcode - INSTR_STRB + ADDR_MODE_ABS;
-			store_register(em, instruction_size[INSTR_STRB], addr_mode, true);
+			store_register(em, addr_mode, true);
 			break;
 
 		case SINSTR_CPRP:
-			copy_register_pair(em, instruction_size[INSTR_CPRP]);
+			copy_register_pair(em);
 			break;
 
 		case SINSTR_BZ:
-			cond_branch(em, instruction_size[INSTR_BZ], cpu_get_flag(em->cpu, FLAG_ZERO));
+			cond_branch(em, cpu_get_flag(em->cpu, FLAG_ZERO));
 			break;
 		case SINSTR_BNZ:
-			cond_branch(em, instruction_size[INSTR_BNZ], !cpu_get_flag(em->cpu, FLAG_ZERO));
+			cond_branch(em, !cpu_get_flag(em->cpu, FLAG_ZERO));
 			break;
 		case SINSTR_BCC:
-			cond_branch(em, instruction_size[INSTR_BCC], !cpu_get_flag(em->cpu, FLAG_CARRY));
+			cond_branch(em, !cpu_get_flag(em->cpu, FLAG_CARRY));
 			break;
 		case SINSTR_BCS:
-			cond_branch(em, instruction_size[INSTR_BCS], cpu_get_flag(em->cpu, FLAG_CARRY));
+			cond_branch(em,  cpu_get_flag(em->cpu, FLAG_CARRY));
 			break;
 		case SINSTR_BRN:
-			cond_branch(em, instruction_size[INSTR_BRN], cpu_get_flag(em->cpu, FLAG_NEGATIVE));
+			cond_branch(em, cpu_get_flag(em->cpu, FLAG_NEGATIVE));
 			break;
 		case SINSTR_BRP:
-			cond_branch(em, instruction_size[INSTR_BRP], !cpu_get_flag(em->cpu, FLAG_NEGATIVE));
+			cond_branch(em, !cpu_get_flag(em->cpu, FLAG_NEGATIVE));
 			break;
 		case SINSTR_BRA:
-			cond_branch(em, instruction_size[INSTR_BRA], true);
+			cond_branch(em, true);
 			break;
 		case SINSTR_BBS:
-			branch_on_bit_in_register(em, instruction_size[INSTR_BBS], true);
+			branch_on_bit_in_register(em, true);
 			break;
 		case SINSTR_BBC:
-			branch_on_bit_in_register(em, instruction_size[INSTR_BBC], false);
+			branch_on_bit_in_register(em, false);
 			break;
 
 		case SINSTR_LBRA_ABS:
 		case SINSTR_LBRA_ABS_PTR:
 			addr_mode = opcode - INSTR_LBRA + ADDR_MODE_ABS;
-			PC = addr_from_addr_mode(em, addr_mode);
+			em->cpu->pc = addr_from_addr_mode(em, addr_mode);
 			break;
 
 		case SINSTR_CALL_ABS:
 		case SINSTR_CALL_ABS_PTR:
 		case SINSTR_CALL_ZP_PTR:
 			addr_mode = opcode - INSTR_LBRA + ADDR_MODE_ABS;
-			call_to_subroutine(em, instruction_size[INSTR_CALL], addr_mode);
+			call_to_subroutine(em, addr_mode);
 			break;
 
 		case SINSTR_RET:
@@ -784,41 +681,41 @@ int emulator_execute(emulator_t *em)
 		*/
 
 		case SINSTR_ASR:
-			unop(em, instruction_size[INSTR_ASR], asr_unop_func);
+			unop(em, INSTR_ASR, ADDR_MODE_NULL);
 			break;
 		case SINSTR_LSR:
-			unop(em, instruction_size[INSTR_LSR], lsr_unop_func);
+			unop(em, INSTR_LSR, ADDR_MODE_NULL);
 			break;
 		case SINSTR_LSL:
-			unop(em, instruction_size[INSTR_LSL], lsl_unop_func);
+			unop(em, INSTR_LSL, ADDR_MODE_NULL);
 			break;
 		case SINSTR_NOT:
-			unop(em, instruction_size[INSTR_NOT], not_unop_func);
+			unop(em, INSTR_NOT, ADDR_MODE_NULL);
 			break;
 		case SINSTR_DEC:
-			unop(em, instruction_size[INSTR_DEC], dec_unop_func);
+			unop(em, INSTR_DEC, ADDR_MODE_NULL);
 			break;
 		case SINSTR_DECW:
-			unop_wide(em, instruction_size[INSTR_DECW], decw_unop_func);
+			unop_wide(em, INSTR_DECW);
 			break;
 		case SINSTR_INC:
-			unop(em, instruction_size[INSTR_INC], inc_unop_func);
+			unop(em, INSTR_INC, ADDR_MODE_NULL);
 			break;
 		case SINSTR_INCW:
-			unop_wide(em, instruction_size[INSTR_INCW], incw_unop_func);
+			unop_wide(em, INSTR_INCW);
 			break;
 
 		#define SINSTR_CRB(addr_mode) case SINSTR_CRB_##addr_mode :
 		XMACRO_ADDRESSING_MODES(SINSTR_CRB)
 			addr_mode = opcode - INSTR_CRB + ADDR_MODE_IMMIDIATE;
-			unop_with_ams(em, addr_mode, instruction_size[INSTR_CRB], crb_unop_func);
+			unop(em, INSTR_CRB, addr_mode);
 			break;
 		#undef SINSTR_CRB
 
 		#define SINSTR_SRB(addr_mode) case SINSTR_SRB_##addr_mode :
 		XMACRO_ADDRESSING_MODES(SINSTR_SRB)
 			addr_mode = opcode - INSTR_SRB + ADDR_MODE_IMMIDIATE;
-			unop_with_ams(em, addr_mode, instruction_size[INSTR_SRB], srb_unop_func);
+			unop(em, INSTR_SRB, addr_mode);
 			break;
 		#undef SINSTR_SRB
 
