@@ -90,12 +90,10 @@ static const struct ins_test {
 	{.itype = INSTR_CRB,	.inp = "crb r0, %s",		.reg_count = 1, .is_implied = false,	.val = 0},
 	{.itype = INSTR_SRB,	.inp = "srb r0, %s",		.reg_count = 1, .is_implied = false,	.val = 0},
 };
-
 void onfail()
 {
 	exit(-1);
 }
-
 __attribute__((format(printf, 1, 2)))
 void fail_test(const char * fmt, ...)
 {
@@ -106,7 +104,6 @@ void fail_test(const char * fmt, ...)
 	fprintf(stderr, "\n");
 	onfail();
 }
-
 __attribute__((format(printf, 1, 2)))
 void pass_test(const char * fmt, ...)
 {
@@ -217,6 +214,13 @@ static char *instructions_string()
 	return str;
 }
 
+tokenizer_t * tk_from_file(file_t *file)
+{
+	fstack_t *s = NULL;
+	push_file(&s, file);
+	return new_tokenizer(&s);
+}
+
 static void test_instruction(const struct ins_test *ins)
 {
 	const int	*ams;
@@ -233,9 +237,9 @@ static void test_instruction(const struct ins_test *ins)
 	if (ins->is_implied) {
 		strcpy(ins_str, ins->inp);
 		ftemp_with(&tmp, EXT_ASM_FILE, ".section:\n	%s\n", ins_str);
-		tk = new_tokenizer(&tmp);
+		tk = tk_from_file(&tmp);
 		p = parse(tk);
-		section = HMAP_get(p->sections, "section", 7);
+		section = DLA_get(p->sections, 0);
 		TEST_QUIET(section != NULL, "section found (%s)", ins->inp);
 		TEST_QUIET(section->data->len == 1, "section length == 1 (%s)", ins->inp);
 		data = *(asm_t**)DLA_get(section->data, 0);
@@ -264,12 +268,11 @@ static void test_instruction(const struct ins_test *ins)
 
 		get_am_str(am_str, ams[i], ins->reg_count);
 
-
 		sprintf(ins_str, ins->inp, am_str);
 		ftemp_with(&tmp, EXT_ASM_FILE, ".section:\n	%s\n", ins_str);
-		tk = new_tokenizer(&tmp);
+		tk = tk_from_file(&tmp);
 		p = parse(tk);
-		section = HMAP_get(p->sections, "section", 7);
+		section = DLA_get(p->sections, 0);
 		TEST_QUIET(section != NULL, "section found (%s)", ins_str);
 		TEST_QUIET(section->data->len == 1, "section length == 1 (%s)", ins_str);
 		data = *(asm_t**)DLA_get(section->data, 0);
@@ -307,7 +310,7 @@ static void test_big_program()
 		code_str);
 	free(code_str);
 
-	tk = new_tokenizer(&tmp);
+	tk = tk_from_file(&tmp);
 	p = parse(tk);
 	program_free(&p);
 	tk_close(&tk);

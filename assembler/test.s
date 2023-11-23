@@ -1,9 +1,11 @@
-.global: global_func1, global_func2, global_func3
+
 
 .text:
 
+ABSOLUTE_LABEL = #10 * #0xFFFFFFFF + #5
+
 global_func1:
-my_label = #1 - #0b0011 + global_func1 * (global_func3 + #-10)
+my_label = #1 - #0b0011 + ABSOLUTE_LABEL * (ABSOLUTE_LABEL + #-10) ; 999973
 
 global_func3: /*
 	here is a multiline comment

@@ -10,6 +10,7 @@
 #define _FILE_H_
 
 #include "../../common/util/types.h"
+#include "../../common/structures/codegen_node_structures.h"
 #include <stdio.h>
 
 enum file_extensions {
@@ -31,6 +32,8 @@ typedef struct file {
 	int		mode;
 } file_t;
 
+
+CODEGEN_STATIC_STACK(file_t *, fstack_t, _file)
 
 void	open_file(file_t *res, const char *filename, int mode);
 
