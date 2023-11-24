@@ -9,10 +9,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+/*
 #define MEM (em->mem)
 #define REGS (em->cpu->regs)
 #define PC (em->cpu->pc)
 #define SP (em->cpu->regs[REG_STACK_POINTER])
+*/
 
 static u8_t fetch_byte(emulator_t *em)
 {
@@ -738,7 +740,7 @@ int emulator_execute(emulator_t *em)
 		 	printf("unsure how to handle BRK\n");
 			break;
 		case SINSTR_NOP:
-		 	PC += instruction_size[INSTR_NOP];
+		 	em->cpu->pc += instruction_size[INSTR_NOP];
 			break;
 
 		default:
