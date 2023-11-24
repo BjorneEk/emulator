@@ -2,7 +2,9 @@
 #include "../../common/util/error.h"
 #include "../../arch/interface.h"
 
+#include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 
 memory_t *new_memory()
 {
@@ -12,11 +14,30 @@ memory_t *new_memory()
 
 	return res;
 }
+static u64_t file_len(const char *filename)
+{
+	struct stat st;
+
+	if (stat(filename, &st) == -1)
+		exit_error("failed to open file: %s\n", filename);
+	return st.st_size;
+}
+
+void memory_from_file(memory_t *mem, const char *filename)
+{
+	u64_t i;
+	FILE *f;
+
+	i = MEMORY_SIZE - file_len(filename);
+
+	f = fopen(filename, "rb");
+	while(i < MEMORY_SIZE)
+		mem->data[i++] = getc(f);
+}
 
 u8_t memory_read_byte(memory_t *mem, u32_t addr)
 {
-	ASSERT(addr < MEMORY_SIZE);
-
+	//ASSERT(addr < MEMORY_SIZE);
 	return mem->data[addr];
 }
 
@@ -24,7 +45,10 @@ void memory_write_byte(memory_t *mem, u32_t addr, u8_t data)
 {
 	ASSERT(addr < MEMORY_SIZE);
 
-	mem->data[addr] = data;
+	if (addr == 0)
+		printf("%c", (char)data);
+	else
+		mem->data[addr] = data;
 }
 
 u16_t memory_read_word(memory_t *mem, u32_t addr)

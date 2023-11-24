@@ -36,7 +36,7 @@
 	X(LENGTH)
 
 enum token_type {
-	TK_NULL = 0xFF,
+	TK_NULL = INSTR_NULL,
 #define TOKEN_NAME(name) TK_##name,
 	XMACRO_OTHER_TOKENS(TOKEN_NAME)
 #undef TOKEN_NAME

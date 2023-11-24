@@ -609,6 +609,59 @@ static int expect_reg(assembler_t *as, bool trailing_comma)
 	}
 	return tk.reg;
 }
+static int min_addr_mode(int instr)
+{
+	switch (instr) {
+		case INSTR_DECW:
+		case INSTR_INCW:
+		case INSTR_ASR:
+		case INSTR_LSR:
+		case INSTR_LSL:
+		case INSTR_NOT:
+		case INSTR_DEC:
+		case INSTR_INC:
+		case INSTR_CPRP:
+		case INSTR_RET:
+		case INSTR_RTI:
+		case INSTR_BRK:
+		case INSTR_NOP:
+			return -1;
+		case INSTR_BBS:
+		case INSTR_BBC:
+		case INSTR_BZ:
+		case INSTR_BNZ:
+		case INSTR_BCC:
+		case INSTR_BCS:
+		case INSTR_BRN:
+		case INSTR_BRP:
+		case INSTR_BRA:
+			return ADDR_MODE_RELATIVE;
+		case INSTR_ADC:
+		case INSTR_ADD:
+		case INSTR_SBC:
+		case INSTR_SUB:
+		case INSTR_EOR:
+		case INSTR_ORR:
+		case INSTR_AND:
+		case INSTR_LDRB:
+		case INSTR_ADCW:
+		case INSTR_ADDW:
+		case INSTR_SBCW:
+		case INSTR_SUBW:
+		case INSTR_LDR:
+		case INSTR_CMP:
+		case INSTR_CRB:
+		case INSTR_SRB:
+			return ADDR_MODE_IMMIDIATE;
+		case INSTR_LBRA:
+		case INSTR_CALL:
+		case INSTR_LDRW:
+		case INSTR_STRB:
+		case INSTR_STR:
+			return ADDR_MODE_ABS;
+	}
+	return -1;
+}
 
 static asm_t *instr(assembler_t *as, tk_t t)
 {
@@ -699,6 +752,7 @@ relative:
 handle_addressing_mode:
 	supported_len = get_addr_modes(ins->instruction, supported);
 	addr_mode(as, ins, 0, supported, supported_len);
+	ins->type = ins->instruction + (ins->addr_mode - min_addr_mode(ins->instruction));
 	as->current_section->size += ins->addr_mode_size + ins->instruction_size;
 	return ins;
 }
@@ -796,7 +850,7 @@ static void parse_string_data(assembler_t *as, asm_t *res)
 			break;
 	}
 	res->string = str;
-	res->data_size *= len;
+	res->data_size *= len + 1;
 	as->current_section->size += res->data_size;
 }
 
@@ -808,7 +862,7 @@ static void parse_data_lit(assembler_t *as, tk_t prev)
 	tk = next(as);
 
 	if (tk.type == TK_IDENT) {
-		add_label_def(as, tk, DEF_DEFINED, as->current_section->size);
+		add_label_def(as, tk, DEF_DEFINED, as->current_section->size + 1);
 		consume(as, '='); /* not nececcary */
 		tk = next(as);
 	} else if (tk.type == '=') {
@@ -904,7 +958,7 @@ static void parse_start(assembler_t *as, tk_t t)
 			if (as->current_section == NULL)
 				PARSE_ERROR(t, "Expected section before label definition");
 			if (consume(as, ':')) {
-				add_label_def(as, t, DEF_DEFINED, as->current_section->size);
+				add_label_def(as, t, DEF_DEFINED, as->current_section->size + 1);
 				return;
 			}
 			if (consume(as, '=')) {

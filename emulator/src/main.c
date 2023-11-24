@@ -14,13 +14,30 @@
 
 #include <stdio.h>
 
-int main(void)
+int main(int argc, const char *argv[])
 {
-	cpu_t *cpu;
-	memory_t *mem;
-	emulator_t *em;
+	cpu_t		*cpu;
+	memory_t	*mem;
+	emulator_t	*em;
+	int res;
 
-	cpu = new_cpu();
+	cpu = new_cpu(0xFFFFFFFF - 8);
+	mem = new_memory();
+	em = new_emulator(cpu, mem);
+
+	memory_from_file(mem, argv[1]);
+	do {
+		res = emulator_execute(em);
+		//fgetc(stdin);
+	} while(res != 1);
+}
+
+void test(void)
+{
+	cpu_t		*cpu;
+	memory_t	*mem;
+	emulator_t	*em;
+	cpu = new_cpu(0);
 	mem = new_memory();
 	em = new_emulator(cpu, mem);
 

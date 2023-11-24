@@ -113,6 +113,7 @@ void fw_string(file_t *f, char *s)
 {
 	while (*(s++) != '\0')
 		fw_u8(f, s[-1]);
+	fw_u8(f, '\0');
 }
 void fw_string_len(file_t *f, char *s, int len)
 {

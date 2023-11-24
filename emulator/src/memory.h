@@ -9,7 +9,9 @@
 #ifndef _MEMORY_H_
 #define _MEMORY_H_
 
+
 #include "../../common/util/types.h"
+#include <stdio.h>
 
 #define MEMORY_SIZE (0xFFFFFFFF)
 
@@ -18,6 +20,8 @@ typedef struct memory {
 } memory_t;
 
 memory_t *new_memory();
+
+void memory_from_file(memory_t *mem, const char *filename);
 
 u8_t memory_read_byte(memory_t *mem, u32_t addr);
 

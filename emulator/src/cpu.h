@@ -15,6 +15,12 @@ typedef struct cpu {
 	u16_t regs[13];
 	u16_t ps;
 	u32_t pc;
+
+	bool	is_reset;
+	u32_t	boot_location;
+	u32_t	interrupt_handler_location;
+	bool	nmi;
+	bool	irq;
 } cpu_t;
 
 static const int FLAG_CARRY = 15;
@@ -39,7 +45,7 @@ static inline void cpu_clear_flag(cpu_t *cpu, int flag)
 	cpu->ps &= ~(1 << flag);
 }
 
-cpu_t *new_cpu();
+cpu_t *new_cpu(u32_t boot_location);
 
 void cpu_print(cpu_t *cpu);
 

@@ -16,9 +16,6 @@ puts_loop:
 	incw	r0, r1
 	bra	puts_loop
 puts_ret:
-	ldrb	r2, '\n'
-	strb	r2, [OUT]
-
 	ldr	r2, [sp]
 	add	sp, sp, #2
 	ret
@@ -29,11 +26,10 @@ main:
 	ldr	r0, (greeting & #0xFFFF0000) >> #16
 	ldr	r1, greeting & #0xFFFF
 	call	[puts]
-loop:
-	bra	loop
+	brk
 
 interrupt:
 	rti
 
 .data:
-	string greeting = "Hello, World!"
+	string greeting = "Hello, World!\n"
