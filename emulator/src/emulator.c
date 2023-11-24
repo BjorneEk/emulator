@@ -3,6 +3,7 @@
 #include "memory.h"
 #include "../../arch/interface.h"
 #include "../../common/util/types.h"
+#include "../../common/util/error.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -43,7 +44,7 @@ static u32_t fetch_long(emulator_t *em)
 	return long_res;
 }
 
-static void fetch_regs(emulator_t *em, u16_t **reg_h, u16_t **reg_l)
+static void fetch_reg_pair(emulator_t *em, u16_t **reg_h, u16_t **reg_l)
 {
 	u8_t reg_byte;
 
@@ -66,6 +67,7 @@ emulator_t *new_emulator(cpu_t *cpu, memory_t *mem)
 	return res;
 }
 
+/*
 static void print_tolower(char *str)
 {
 	int i;
@@ -86,85 +88,113 @@ static void print_instruction(int ins)
 	print_tolower(name_map[ins]);
 }
 
-static u32_t addr_from_addr_mode(emulator_t *em , addressing_mode_t addr_mode)
+static u32_t resolve_implied_addr_mode(emulator_t *em)
 {
-	u8_t 	b0, b1;
-	u16_t 	w0;
-	u32_t 	addr;
+	return em->cpu->pc + fetch_byte(em);
+}
+
+static u16_t resolve_reg_addr_mode(emulator_t *em)
+{
+	u16_t *reg;
+
+	fetch_reg_pair(em, &reg, NULL);	
+
+	return *reg;
+}
+
+static u16_t resolve_immediate_addr_mode(emulator_t *em)
+{
+	return fetch_word(em);
+}
+*/
+
+static u32_t resolve_direct_addr_mode(emulator_t *em , addressing_mode_t addr_mode)
+{
+	u16_t *reg_h, *reg_l, *reg_i;
+	u16_t offset;
+	u32_t absolute_value;
 
 	switch (addr_mode) {
 		case ADDR_MODE_RELATIVE:
-			b0 = memory_read_byte(MEM, PC);
-			addr = PC + b0;
-			break;
 		case ADDR_MODE_IMMIDIATE:
-			break;
 		case ADDR_MODE_REG:
-			break;
+			ERR();
+			return 0;
 		case ADDR_MODE_ABS:
-			addr = memory_read_long(MEM, PC);
-			break;
+			return memory_read_long(em->mem, em->cpu->pc);
 		case ADDR_MODE_ABS_PTR:
-			b0 = memory_read_byte(MEM, PC);
-			addr = (REGS[b0 >> 4] << 16) | REGS[b0 & 0x0F];
-			break;
+			fetch_reg_pair(em, &reg_h, &reg_l);
+			return (*reg_h << 16) | *reg_l;
 		case ADDR_MODE_ABS_IDX:
-		 	addr = memory_read_long(MEM, PC);
-			b0 = memory_read_byte(MEM, PC + 4);
-			addr += REGS[b0 >> 4];
-			break;
+		 	absolute_value = fetch_long(em);
+			fetch_reg_pair(em, &reg_i, NULL);
+			return absolute_value + *reg_i;
 		case ADDR_MODE_ABS_PTR_IDX:
-			b0 = memory_read_byte(MEM, PC);
-			b1 = memory_read_byte(MEM, PC + 1);
-			addr = (REGS[b0 >> 4] << 16) | REGS[b0 & 0x0F];
-			addr += REGS[b1 >> 4];
-			break;
+			fetch_reg_pair(em, &reg_h, &reg_l);
+			fetch_reg_pair(em, &reg_i, NULL);
+			return ((*reg_h << 16) | *reg_l) + *reg_i;
 		case ADDR_MODE_ABS_PTR_OFF:
-			b0 = memory_read_byte(MEM, PC);
-			w0 = memory_read_word(MEM, PC + 1);
-			addr = (REGS[b0 >> 4] << 16) | REGS[b0 & 0x0F];
-			addr += w0;
-			break;
+			fetch_reg_pair(em, &reg_h, &reg_l);
+			offset = fetch_word(em);
+			return ((*reg_h << 16) | *reg_l) + offset;
 		case ADDR_MODE_ZP_PTR:
-			b0 = memory_read_byte(MEM, PC);
-			addr = REGS[b0 >> 4];
-			break;
+			fetch_reg_pair(em, &reg_h, NULL);
+			return (u32_t)*reg_h;
 		case ADDR_MODE_ZP_OFF:
-			b0 = memory_read_byte(MEM, PC);
-			w0 = memory_read_word(MEM, PC + 1);
-			addr = REGS[b0 >> 4] + w0;
-			break;
+			fetch_reg_pair(em, &reg_h, NULL);
+			offset = fetch_word(em);
+			return *reg_h + offset;
 		case ADDR_MODE_ZP_IDX:
-			b0 = memory_read_byte(MEM, PC);
-			addr = REGS[b0 >> 4] + REGS[b0 & 0x0F];
-			break;
-		case ADDR_MODE_NULL:
-			addr = 0;
-			break;
+			fetch_reg_pair(em, &reg_h, &reg_l);
+			return *reg_h + *reg_l;
+		
+		default:
+			ERR();
+			return 0;
 	}
-	return addr;
 }
 
 static u16_t word_from_addr_mode(emulator_t *em, addressing_mode_t addr_mode)
 {
-	u32_t addr;
+	u16_t *reg;
 
-	if (addr_mode == ADDR_MODE_IMMIDIATE) {
-		return memory_read_word(MEM, PC);
-	} else if (addr_mode == ADDR_MODE_REG) {
-		return REGS[memory_read_byte(MEM, PC) >> 4];
-	} else {
-		addr = addr_from_addr_mode(em, addr_mode);
-		return memory_read_word(MEM, addr);
+	switch (addr_mode) {
+		case ADDR_MODE_RELATIVE:
+			ERR();
+			return 0;
+		case ADDR_MODE_IMMIDIATE:
+			return fetch_word(em);	
+		case ADDR_MODE_REG:
+			fetch_reg_pair(em, &reg, NULL);
+			return *reg;
+		#define CASE_OF(am) case ADDR_MODE_##am :
+		XMACRO_DIRECT_ADDRESSING_MODES(CASE_OF)
+			return memory_read_word(em->mem, resolve_direct_addr_mode(em, addr_mode));
+		#undef CASE_OF
+
+		default:
+			ERR();
+			return 0;
 	}
 }
 
 static u32_t long_from_addr_mode(emulator_t *em, addressing_mode_t addr_mode)
 {
-	u32_t addr;
+	switch (addr_mode) {
+		case ADDR_MODE_RELATIVE:
+		case ADDR_MODE_IMMIDIATE:
+		case ADDR_MODE_REG:
+			ERR();
+			return 0;
+		#define CASE_OF(am) case ADDR_MODE_##am :
+		XMACRO_DIRECT_ADDRESSING_MODES(CASE_OF)
+			return memory_read_long(em->mem, resolve_direct_addr_mode(em, addr_mode));
+		#undef CASE_OF
 
-	addr = addr_from_addr_mode(em, addr_mode);
-	return memory_read_long(em->mem, addr);
+		default:
+			ERR();
+			return 0;
+	}
 }
 
 static void set_zn_flags(emulator_t *em, u16_t alu_res)
@@ -261,7 +291,7 @@ void binop(emulator_t *em, int addr_mode, perform_binop_t perform_op)
 	u16_t rhs;
 	u32_t alu_res;
 
-	fetch_regs(em, &reg_d, &reg_s);
+	fetch_reg_pair(em, &reg_d, &reg_s);
 
 	rhs = word_from_addr_mode(em, addr_mode);
 	alu_res = perform_op(em, *reg_s, rhs);
@@ -309,7 +339,7 @@ void binop_wide(emulator_t *em, int addr_mode, perform_binop_wide_t perform_op_w
 	u16_t rhs;
 	u64_t alu_res;
 
-	fetch_regs(em, &reg_dh, &reg_dl);
+	fetch_reg_pair(em, &reg_dh, &reg_dl);
 
 	lhs = (u32_t)(*reg_dh) << 16 | (u32_t)(*reg_dl);
 
@@ -318,8 +348,8 @@ void binop_wide(emulator_t *em, int addr_mode, perform_binop_wide_t perform_op_w
 
 	set_zn_flags_wide(em, alu_res);
 
-	*reg_dh = alu_res >> 16;
-	*reg_dl = alu_res & 0xFFFF;
+	*reg_dh = (u32_t)alu_res >> 16;
+	*reg_dl = (u32_t)alu_res & 0xFFFF;
 }
 
 void unop(emulator_t *em, int ins, int addr_mode)
@@ -327,7 +357,7 @@ void unop(emulator_t *em, int ins, int addr_mode)
 	u16_t *reg;
 	u32_t alu_res;
 
-	fetch_regs(em, &reg, NULL);
+	fetch_reg_pair(em, &reg, NULL);
 
 	switch (ins) {
 		case INSTR_ASR:
@@ -362,7 +392,7 @@ void unop(emulator_t *em, int ins, int addr_mode)
 			break;	
 	
 		default:
-			printf("not a unop: %d\n", ins);
+			ERR();
 			break;
 	}
 
@@ -375,7 +405,7 @@ void unop_wide(emulator_t *em, int ins)
 	u32_t lhs;
 	u64_t alu_res;
 
-	fetch_regs(em, &reg_dh, &reg_dl);
+	fetch_reg_pair(em, &reg_dh, &reg_dl);
 
 	lhs = (u32_t)(*reg_dh) << 16 | (u32_t)(*reg_dl);
 
@@ -390,15 +420,15 @@ void unop_wide(emulator_t *em, int ins)
 			break;
 
 		default:
-			printf("not a wide unop: %d\n", ins);
+			ERR();
 			break;
 	}
 
-	*reg_dh = alu_res >> 16;
-	*reg_dl = alu_res & 0xFFFF;
+	*reg_dh = (u32_t)alu_res >> 16;
+	*reg_dl = (u32_t)alu_res & 0xFFFF;
 }
 
-void cond_branch(emulator_t *em, bool should_branch)
+void relative_conditional_branch(emulator_t *em, bool should_branch)
 {
 	if (should_branch) {
 		em->cpu->pc += fetch_byte(em);
@@ -416,7 +446,7 @@ void branch_on_bit_in_register(emulator_t *em, bool bit_should_be_set)
 	value = value_reg_byte >> 4;
 	reg = em->cpu->regs[value_reg_byte & 0x0F];
 
-	cond_branch(em, (reg & 1 << value) == bit_should_be_set);
+	relative_conditional_branch(em, (reg & 1 << value) == bit_should_be_set);
 }
 
 void load_register(emulator_t *em, int addr_mode, bool is_byte)
@@ -424,7 +454,7 @@ void load_register(emulator_t *em, int addr_mode, bool is_byte)
 	u16_t *reg;
 	u16_t data;
 
-	fetch_regs(em, &reg, NULL);
+	fetch_reg_pair(em, &reg, NULL);
 
 	data = word_from_addr_mode(em, addr_mode);
 
@@ -436,7 +466,7 @@ void load_register_wide(emulator_t *em, int addr_mode)
 	u16_t *reg_h, *reg_l;
 	u32_t long_data;
 
-	fetch_regs(em, &reg_h, &reg_l);
+	fetch_reg_pair(em, &reg_h, &reg_l);
 
 	long_data = long_from_addr_mode(em, addr_mode);
 
@@ -449,9 +479,9 @@ void store_register(emulator_t *em, int addr_mode, bool is_byte)
 	u16_t *reg;
 	u32_t addr;
 
-	fetch_regs(em, &reg, NULL);
+	fetch_reg_pair(em, &reg, NULL);
 
-	addr = addr_from_addr_mode(em, addr_mode);
+	addr = resolve_direct_addr_mode(em, addr_mode);
 
 	if (is_byte) {
 		memory_write_byte(em->mem, addr, *reg & 0x0F);
@@ -478,8 +508,8 @@ void copy_register_pair(emulator_t *em)
 {
 	u16_t *reg_dh, *reg_dl, *reg_sh, *reg_sl;
 
-	fetch_regs(em, &reg_dh, &reg_dl);
-	fetch_regs(em, &reg_sh, &reg_sl);
+	fetch_reg_pair(em, &reg_dh, &reg_dl);
+	fetch_reg_pair(em, &reg_sh, &reg_sl);
 
 	*reg_dh = *reg_sh;
 	*reg_dl = *reg_sl;
@@ -507,66 +537,51 @@ int emulator_execute(emulator_t *em)
 			break;
 		#undef SINSTR_LDRB
 
-		case SINSTR_LDRW_ABS:
-		case SINSTR_LDRW_ABS_PTR:
-		case SINSTR_LDRW_ABS_IDX:
-		case SINSTR_LDRW_ABS_PTR_IDX:
-		case SINSTR_LDRW_ABS_PTR_OFF:
-		case SINSTR_LDRW_ZP_PTR:
-		case SINSTR_LDRW_ZP_OFF:
-		case SINSTR_LDRW_ZP_IDX:
+		#define SINSTR_LDRW(addr_mode) case SINSTR_LDRW_##addr_mode :
+		XMACRO_DIRECT_ADDRESSING_MODES(SINSTR_LDRW)
 			addr_mode = opcode - INSTR_LDRW + ADDR_MODE_ABS;
 			load_register_wide(em, addr_mode);
 			break;
+		#undef SINSTR_LDRW
 
-		case SINSTR_STR_ABS:
-		case SINSTR_STR_ABS_PTR:
-		case SINSTR_STR_ABS_IDX:
-		case SINSTR_STR_ABS_PTR_IDX:
-		case SINSTR_STR_ABS_PTR_OFF:
-		case SINSTR_STR_ZP_PTR:
-		case SINSTR_STR_ZP_OFF:
-		case SINSTR_STR_ZP_IDX:
+		#define SINSTR_STR(addr_mode) case SINSTR_STR_##addr_mode :
+		XMACRO_DIRECT_ADDRESSING_MODES(SINSTR_STR)
 			addr_mode = opcode - INSTR_STR + ADDR_MODE_ABS;
 			store_register(em, addr_mode, false);
 			break;
+		#undef SINSTR_STR
 
-		case SINSTR_STRB_ABS:
-		case SINSTR_STRB_ABS_PTR:
-		case SINSTR_STRB_ABS_IDX:
-		case SINSTR_STRB_ABS_PTR_IDX:
-		case SINSTR_STRB_ABS_PTR_OFF:
-		case SINSTR_STRB_ZP_PTR:
-		case SINSTR_STRB_ZP_OFF:
-		case SINSTR_STRB_ZP_IDX:
+		#define SINSTR_STRB(addr_mode) case SINSTR_STRB_##addr_mode :
+		XMACRO_DIRECT_ADDRESSING_MODES(SINSTR_STRB)
 			addr_mode = opcode - INSTR_STRB + ADDR_MODE_ABS;
 			store_register(em, addr_mode, true);
 			break;
+		#undef SINSTR_STRB
 
 		case SINSTR_CPRP:
 			copy_register_pair(em);
 			break;
 
 		case SINSTR_BZ:
-			cond_branch(em, cpu_get_flag(em->cpu, FLAG_ZERO));
+			relative_conditional_branch(em, cpu_get_flag(em->cpu, FLAG_ZERO));
 			break;
 		case SINSTR_BNZ:
-			cond_branch(em, !cpu_get_flag(em->cpu, FLAG_ZERO));
+			relative_conditional_branch(em, !cpu_get_flag(em->cpu, FLAG_ZERO));
 			break;
 		case SINSTR_BCC:
-			cond_branch(em, !cpu_get_flag(em->cpu, FLAG_CARRY));
+			relative_conditional_branch(em, !cpu_get_flag(em->cpu, FLAG_CARRY));
 			break;
 		case SINSTR_BCS:
-			cond_branch(em,  cpu_get_flag(em->cpu, FLAG_CARRY));
+			relative_conditional_branch(em,  cpu_get_flag(em->cpu, FLAG_CARRY));
 			break;
 		case SINSTR_BRN:
-			cond_branch(em, cpu_get_flag(em->cpu, FLAG_NEGATIVE));
+			relative_conditional_branch(em, cpu_get_flag(em->cpu, FLAG_NEGATIVE));
 			break;
 		case SINSTR_BRP:
-			cond_branch(em, !cpu_get_flag(em->cpu, FLAG_NEGATIVE));
+			relative_conditional_branch(em, !cpu_get_flag(em->cpu, FLAG_NEGATIVE));
 			break;
 		case SINSTR_BRA:
-			cond_branch(em, true);
+			relative_conditional_branch(em, true);
 			break;
 		case SINSTR_BBS:
 			branch_on_bit_in_register(em, true);
@@ -578,7 +593,7 @@ int emulator_execute(emulator_t *em)
 		case SINSTR_LBRA_ABS:
 		case SINSTR_LBRA_ABS_PTR:
 			addr_mode = opcode - INSTR_LBRA + ADDR_MODE_ABS;
-			em->cpu->pc = addr_from_addr_mode(em, addr_mode);
+			em->cpu->pc = resolve_direct_addr_mode(em, addr_mode);
 			break;
 
 		case SINSTR_CALL_ABS:
