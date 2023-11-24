@@ -49,6 +49,12 @@ typedef enum reg_type {
 	X(ABS_PTR_OFF)	X(ZP_PTR)	\
 	X(ZP_OFF)	X(ZP_IDX)
 
+#define XMACRO_DIRECT_ADDRESSING_MODES(X)	\
+	X(ABS)		X(ABS_PTR)		\
+	X(ABS_IDX)	X(ABS_PTR_IDX)		\
+	X(ABS_PTR_OFF)	X(ZP_PTR)		\
+	X(ZP_OFF)	X(ZP_IDX)
+
 typedef enum addressing_mode {
 	ADDR_MODE_RELATIVE = 0,
 	ADDR_MODE_IMMIDIATE,
