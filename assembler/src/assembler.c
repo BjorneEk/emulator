@@ -8,6 +8,7 @@
 #include "assembler.h"
 #include "../../common/structures/dynamic_array.h"
 #include "../../common/structures/hashmap.h"
+#include "file.h"
 #include "tokenizer.h"
 #include "../../common/util/error.h"
 #include "../../common/util/error.h"
@@ -26,6 +27,8 @@ typedef struct assembler_ctx {
 	int		slen;
 	tokenizer_t	*tknz;
 } assembler_t;
+
+#define IS_LITTLE_ENDIAN (endian == LITTLE_ENDIAN)
 
 #define PARSE_ERROR(...) do {		\
 	tk_print_error(__VA_ARGS__);	\
@@ -90,7 +93,9 @@ static asm_t *new_asm(assembler_t *as, tk_t tk)
 	asm_t *res;
 
 	if (as->current_section == NULL)
-		PARSE_ERROR(tk, "instructions and data need to be placed in sections, define a section with '.section_name:'");
+		PARSE_ERROR(
+			tk,
+			"instructions and data need to be placed in sections, define a section with '.section_name:'");
 
 	res = calloc(1, sizeof(asm_t));
 	DLA_append(as->current_section->data, &res);
@@ -104,7 +109,10 @@ static asm_t *new_instr(assembler_t *as, tk_t tk)
 	asm_t *res;
 
 	if (as->current_section->has_raw_data)
-		PARSE_WARNING(tk, "mixing data and instructions in same section (%s)", as->current_section->tk.str_val);
+		PARSE_WARNING(
+			tk,
+			"mixing data and instructions in same section (%s)",
+			as->current_section->tk.str_val);
 
 	res = new_asm(as, tk);
 	res->type		= TK_INSTRUCTION;
@@ -133,7 +141,10 @@ static asm_t *new_data(assembler_t *as, tk_t tk, int type, int array_type)
 	int size_type;
 
 	if (!as->current_section->has_raw_data && as->current_section->size != 0)
-		PARSE_WARNING(tk, "mixing data and instructions in same section (%s)", as->current_section->tk.str_val);
+		PARSE_WARNING(
+			tk,
+			"mixing data and instructions in same section (%s)",
+			as->current_section->tk.str_val);
 
 	res = new_asm(as, tk);
 	res->type = type;
@@ -200,8 +211,13 @@ static void add_section(assembler_t *as, tk_t tk)
 
 	s = HMAP_get(as->section_map, tk.str_val, tk.tklen);
 	if (s != NULL) {
-		PARSE_ERROR(tk, "Redefenition of section %s, previously defined here: file: %s, line: %i, col: %i",
-		tk.str_val, s->tk.debug.file, s->tk.debug.line + 1, s->tk.debug.column + 1);
+		PARSE_ERROR(
+			tk,
+			"Redefenition of section %s, previously defined here: file: %s, line: %i, col: %i",
+			tk.str_val,
+			s->tk.debug.file,
+			s->tk.debug.line + 1,
+			s->tk.debug.column + 1);
 	}
 	s = new_section(as, tk);
 	as->current_section = s;
@@ -218,6 +234,8 @@ static void add_label_def(assembler_t *as, tk_t tk, int type, int val)
 		l->type	= type;
 		l->tk	= tk;
 		l->val	= val;
+		free(tk.str_val);
+		tk.str_val = l->lbl;
 		HMAP_add(as->current_section->labels, l->tk.str_val, l->tk.tklen, l);
 		return;
 	}
@@ -233,6 +251,8 @@ static void add_label_ref(assembler_t *as, tk_t tk, constexpr_t *ref)
 	l = HMAP_get(as->labels, tk.str_val, tk.tklen);
 	if (l != NULL) {
 		ref->ref = l;
+		free(tk.str_val);
+		tk.str_val = l->lbl;
 		return;
 	}
 	l = new_def(DEF_UNDEFINED, tk.str_val, tk);
@@ -311,6 +331,7 @@ static constexpr_t *binop(assembler_t *as, int precedency_level)
 	static const int xorop[]	= {'^'};
 	static const int orop[]		= {'|'};
 
+#define OPS_LEN (sizeof ops / sizeof(const_int_arr_t))
 	static const const_int_arr_t ops[] = {
 		(const_int_arr_t){orop,		sizeof orop	/ sizeof(int)},
 		(const_int_arr_t){xorop,	sizeof xorop	/ sizeof(int)},
@@ -319,30 +340,25 @@ static constexpr_t *binop(assembler_t *as, int precedency_level)
 		(const_int_arr_t){addops,	sizeof addops	/ sizeof(int)},
 		(const_int_arr_t){mulops,	sizeof mulops	/ sizeof(int)},
 	};
-	#define OPS_LEN (sizeof ops / sizeof(const_int_arr_t))
-	constexpr_t *res;
-	constexpr_t *lhs, *rhs;
-	bool is_subtraction = false;
-	tk_t tk;
-	int i;
 
-//	BUG("plev: %i\n", precedency_level);
+
+	constexpr_t	*res;
+	constexpr_t	*lhs;
+	constexpr_t	*rhs;
+	bool		is_subtraction;
+	tk_t		tk;
+	int		i;
+
+	is_subtraction = false;
+
 	lhs = precedency_level < OPS_LEN - 1 ? binop(as, precedency_level + 1) : unary(as);
 	tk = next(as);
-	for (i = 0; i < ops[precedency_level].len; i++) {
-//		char s1[100];
-//		char s2[100];
-//		tk_type_tostring(tk.type, s1);
-//		tk_type_tostring(ops[precedency_level].arr[i], s2);
-//		BUG("level: %i, ttype: %s (%i), op: %s (%i)\n", precedency_level, s1, tk.type, s2, ops[precedency_level].arr[i]);
-		if (tk.type == ops[precedency_level].arr[i]) {
-//			BUG("match\n");
+	for (i = 0; i < ops[precedency_level].len; i++)
+		if (tk.type == ops[precedency_level].arr[i])
 			goto found_first;
-		}
-	}
-//	BUG("done\n");
 	pb(as, tk);
 	return lhs;
+
 found_first:
 	res = new_op_constexpr(tk);
 	if (tk.type == '-') {
@@ -362,14 +378,8 @@ loop_start:
 
 		tk = next(as);
 		is_subtraction = false;
-		for (i = 0; i < ops[precedency_level].len; i++) {
-//			char s1[100];
-//				char s2[100];
-//				tk_type_tostring(tk.type, s1);
-//				tk_type_tostring(ops[precedency_level].arr[i], s2);
-//				BUG("level: %i, ttype: %s (%i), op: %s (%i)\n", precedency_level, s1, tk.type, s2, ops[precedency_level].arr[i]);
+		for (i = 0; i < ops[precedency_level].len; i++)
 			if (tk.type == ops[precedency_level].arr[i]) {
-//				BUG("match\n");
 				lhs = res;
 				res = new_op_constexpr(tk);
 				if (tk.type == '-') {
@@ -379,8 +389,6 @@ loop_start:
 				DLA_append(res->ops, &lhs);
 				goto loop_start;
 			}
-		}
-//		BUG("done\n");
 		pb(as, tk);
 		return res;
 }
@@ -445,7 +453,9 @@ bop:
 
 		case TK_IDENT:
 			if ((*expr)->ref->type != DEF_ABSOLUTE && is_abs_assign)
-				PARSE_ERROR((*expr)->token, "Only previously defined absolute labels can be used in absolute label assignment expressions");
+				PARSE_ERROR(
+					(*expr)->token,
+					"Only previously defined absolute labels can be used in absolute label assignment expressions");
 			if ((*expr)->ref->type != DEF_ABSOLUTE)
 				PARSE_ERROR((*expr)->token, "undefined label reference: %s",
 					(*expr)->ref->lbl);
@@ -516,17 +526,10 @@ static void addr_mode(assembler_t *as, asm_t *ins, int depth, int *supported, in
 	found_not_expr	= false;
 	reg_set		= false;
 	is_expr		= false;
-	//BUG("len: %i\n", len);
-	for (i = 0; i < len; i++) if (ops[supported[i]].len > depth) {
-		//char	str_[100];
-		//tk_type_tostring(tk.type, str);
-		//tk_type_tostring(ops[supported[i]].arr[depth], str_);
-		//if (ops[supported[i]].arr[depth] == EXPRESSION) {
-		//	BUG("expect: pat:EXPRESSION len: %i, depth: %i, asm:%s\n", ops[supported[i]].len, depth, str);
-		//} else
-		//	BUG("expect: pat:%s len: %i, depth: %i, asm:%s\n", str_, ops[supported[i]].len, depth, str);
 
-		if (!is_expr && (ops[supported[i]].arr[depth] == tk.type && ops[supported[i]].len == depth + 1)) { // perfect match
+	for (i = 0; i < len; i++) if (ops[supported[i]].len > depth) {
+		if (!is_expr && (ops[supported[i]].arr[depth] == tk.type &&
+			ops[supported[i]].len == depth + 1)) { // perfect match
 
 			if (tk.type == TK_REGISTER && !reg_set) {
 				ins->regs[ins->nregs++] = tk.reg;
@@ -534,13 +537,9 @@ static void addr_mode(assembler_t *as, asm_t *ins, int depth, int *supported, in
 			}
 			found_not_expr = true;
 perfect:
-			//BUG("PERFECT ");
-			//print_instr(ins);
 			ins->addr_mode		= supported[i];
 			ins->type		= ins->instruction + ins->addr_mode;
 			ins->addr_mode_size	= addressing_mode_size[ins->addr_mode];
-			//addr_mode(as, ins, depth + 1, _supported, _len);
-			//return;
 		} else if (!is_expr && (ops[supported[i]].arr[depth] == tk.type)) { // match
 			if (tk.type == TK_REGISTER && !reg_set) {
 				ins->regs[ins->nregs++] = tk.reg;
@@ -548,13 +547,12 @@ perfect:
 			}
 			found_not_expr = true;
 match:
-			//BUG("MATCH %i %i %i", supported[i], depth, ops[supported[i]].len);
-			//print_instr(ins);
 			_supported[_len++] = supported[i];
 
 		} else if (found_not_expr && ops[supported[i]].arr[depth] == EXPRESSION) {
 			break;
-		} else if (ops[supported[i]].arr[depth] == EXPRESSION && ops[supported[i]].len == depth + 1) {
+		} else if (ops[supported[i]].arr[depth] == EXPRESSION &&
+			ops[supported[i]].len == depth + 1) {
 			if (!is_expr) {
 				pb(as, tk);
 				ins->value = expr(as);
@@ -723,6 +721,7 @@ static void print_instr(asm_t *ins)
 	printf("instruction: ");
 	for (i = 0; ins_name_map[ins->instruction][i] != '\0'; ++i)
 		putchar(tolower(ins_name_map[ins->instruction][i]));
+	printf(", opcode(0x%x), ", ins->type);
 	if (ins->addr_mode == ADDR_MODE_RELATIVE){
 		printf(", relative");
 	} else if (ins->addr_mode != ADDR_MODE_NULL && ins->addr_mode) {
@@ -836,23 +835,53 @@ static void parse_data_lit(assembler_t *as, tk_t prev)
 	res = new_data(as, tk, type_to_data_type(prev.type), 0);
 	res->data_value = expr(as);
 }
-
-static int check_val(tk_t tk, long val, long min_value, long max_value, bool sign)
+u32_t check_val_regbit(tk_t tk, u64_t val)
 {
-	int res;
-
-	if (!sign && ((unsigned long)max_value < (unsigned long)val || (unsigned long)min_value > (unsigned long)val)) {
-		res = (unsigned long)max_value < (unsigned long)val ? max_value : (unsigned long)min_value > (unsigned long)val ? min_value : val;
-		PARSE_WARNING(tk, "Expected value in range (%lu -> %lu), found %lu, truncated to %u", min_value , max_value, (unsigned long)val, res);
-	} else if (sign && (max_value < val || min_value > val)) {
-		res = max_value < val ? max_value : min_value > val ? min_value : val;
-		PARSE_WARNING(tk, "Expected value in range (%li -> %li), found %li, truncated to %i", min_value , max_value, val, res);
-	} else {
-		return val;
-	}
-	return res;
+	if (val > 15)
+		PARSE_ERROR(
+			tk,
+			"Expected register bit number value in range (%li -> %li), found %li",
+			0,
+			15,
+			val);
+	return (u8_t)val;
 }
-
+u32_t check_val8(tk_t tk, u64_t val)
+{
+	if ((i64_t)val > (i64_t)0xFF)
+		PARSE_WARNING(
+			tk,
+			"Expected 8-bit value in range (%lu -> %lu), found %lu, truncated to %u",
+			0,
+			0xFF,
+			val,
+			(u8_t)val);
+	return (u8_t)val;
+}
+u32_t check_val16(tk_t tk, u64_t val)
+{
+	if ((i64_t)val > (i64_t)0xFFFF)
+		PARSE_WARNING(
+			tk,
+			"Expected 16-bit value in range (%lu -> %lu), found %lu, truncated to %u",
+			0,
+			0xFFFF,
+			val,
+			(u16_t)val);
+	return (u16_t)val;
+}
+u32_t check_val32(tk_t tk, u64_t val)
+{
+	if ((i64_t)val > (i64_t)0xFFFFFFFF)
+	PARSE_WARNING(
+		tk,
+		"Expected 32-bit value in range (0x%x -> 0x%x), found 0x%x, truncated to 0x%x",
+		0,
+		0xFFFFFFFF,
+		val,
+		(u32_t)val);
+	return (u32_t)val;
+}
 static void parse_start(assembler_t *as, tk_t t)
 {
 	char		str[100];
@@ -882,12 +911,12 @@ static void parse_start(assembler_t *as, tk_t t)
 				ex = expr(as);
 				print_constexpr(ex);
 				abs_val = solve_constexpr(&ex, true);
-				final_val = check_val(ex->token, abs_val, 0, 0xFFFFFFFF, false);
+				final_val = check_val32(ex->token, abs_val);
 				BUG("expression evaluated to: %i\n", final_val);
 				add_label_def(as, t, DEF_ABSOLUTE, final_val);
 				return;
 			}
-			PARSE_ERROR(t, "Expected ':' or assignment after label");
+			PARSE_ERROR(t, "Expected ':' or assignment after label: %s", t.str_val);
 			break;
 
 		case TK_SECTION:
@@ -907,64 +936,51 @@ static void parse_start(assembler_t *as, tk_t t)
 			break;
 		default:
 			tk_type_tostring(t.type, str);
-			PARSE_ERROR(t, "expected top level token (instruction, global defs, identifyer, section or typename), found: %s", str);
+			PARSE_ERROR(
+				t,
+				"expected top level token (instruction, global defs, identifyer, section or typename), found: %s",
+				str);
 	}
 }
 
-program_t *parse(tokenizer_t *t)
-{
-	assembler_t	as;
-	program_t	*res;
-	tk_t		tk;
-
-	init_assembler(&as, t);
-
-	while (tk = next(&as), tk.type != TK_NULL) {
-		parse_start(&as, tk);
-	}
-	res = malloc(sizeof(program_t));
-	res->labels = as.labels;
-	res->sections = as.section_list;
-	HMAP_free(&as.section_map);
 
 
-	return res;
-}
-
-int	eval_type(constexpr_t **expr, int type)
+static int	eval_type(constexpr_t **expr, int type)
 {
 	switch(type) {
 		case DATA_BYTE:
-			return check_val((*expr)->token, solve_constexpr(expr, false), 0, 0xFF, false);
+			return check_val8((*expr)->token, solve_constexpr(expr, false));
 		case DATA_WORD:
-			return check_val((*expr)->token, solve_constexpr(expr, false), 0, 0xFFFF, false);
+			return check_val16((*expr)->token, solve_constexpr(expr, false));
 		case DATA_LONG:
-			return check_val((*expr)->token, solve_constexpr(expr, false), 0, 0xFFFFFFFF, false);
+			return check_val32((*expr)->token, solve_constexpr(expr, false));
 		default: PARSE_ERROR((*expr)->token, "unexpected type");
 	}
 }
 
-void	eval_instr(asm_t *a)
+static void	eval_instr(asm_t *a)
 {
 	int dest;
 	int rel_jmp;
 
 	if (a->instruction == INSTR_BBC || a->instruction == INSTR_BBS)
-		a->evaluated_bit = check_val(a->token, solve_constexpr(&a->bit, false), 0, 15, false);
+		a->evaluated_bit = check_val_regbit(a->token, solve_constexpr(&a->bit, false));
 
 	switch(a->addr_mode) {
 		case ADDR_MODE_ABS:
 		case ADDR_MODE_ABS_IDX:
-			a->evaluated_value = check_val(a->token, solve_constexpr(&a->value, false), 0, 0xFFFFFFFF, false);
+			a->evaluated_value = check_val32(a->token, solve_constexpr(&a->value, false));
 			break;
 		case ADDR_MODE_IMMIDIATE:
 		case ADDR_MODE_ABS_PTR_OFF:
 		case ADDR_MODE_ZP_OFF:
-			a->evaluated_value = check_val(a->token, solve_constexpr(&a->value, false), 0, 0xFFFF, false);
+			a->evaluated_value = check_val16(a->token, solve_constexpr(&a->value, false));
 			break;
 		case ADDR_MODE_RELATIVE:
-			dest = check_val(a->token, solve_constexpr(&a->value, false), 0, 0xFFFFFFFF, false);
-			rel_jmp = dest - a->rel_addr;
+			dest = check_val32(a->token, solve_constexpr(&a->value, false));
+
+			rel_jmp = dest - (a->rel_addr + a->addr_mode_size + a->instruction_size);
+			printf("rel dest for(0x%x): %i\n", a->type, rel_jmp);
 			if (rel_jmp > 127 || rel_jmp < -128)
 				PARSE_ERROR(a->token, "relative jump distance to large must be in range (-128, 127), is %i", rel_jmp);
 			a->evaluated_value = rel_jmp;
@@ -974,17 +990,25 @@ void	eval_instr(asm_t *a)
 }
 
 /* section_t* */
-dla_t *link_program(program_t *p, u64_t final_addr, const char *entry_point, const char *interrupt_handler, u32_t *epp, u32_t *ihp)
+static dla_t *link_program(
+	program_t	*p,
+	u64_t		final_addr,
+	const char	*entry_point,
+	const char	*interrupt_handler,
+	u32_t		*epp,
+	u32_t		*ihp)
 {
-	int i;
-	u64_t addr;
+	int	i;
+	u64_t	addr;
+	section_t *s1;
 
 	addr = final_addr - 8;
+
 	for(i = p->sections->len-1; i >= 0; i--) {
-		section_t *s = *(section_t**)DLA_get(p->sections, i);
-		addr -= s->size;
-		s->begin_addr = addr;
-		FOREACH_VALUE(s->labels, def_t*, d, {
+		s1 = *(section_t**)DLA_get(p->sections, i);
+		addr -= s1->size;
+		s1->begin_addr = addr;
+		FOREACH_VALUE(s1->labels, def_t*, d, {
 			if (d->type == DEF_DEFINED) {
 				d->val += addr;
 				d->type = DEF_ABSOLUTE;
@@ -1020,7 +1044,236 @@ dla_t *link_program(program_t *p, u64_t final_addr, const char *entry_point, con
 			}
 		});
 	});
+	FOREACH_VALUE(p->labels, def_t*, d, {
+		free(d->lbl);
+		free(d);
+	});
+	HMAP_free(&p->labels);
+	return p->sections;
 }
+
+program_t *parse(tokenizer_t *t)
+{
+	assembler_t	as;
+	program_t	*res;
+	tk_t		tk;
+
+	init_assembler(&as, t);
+
+	while (tk = next(&as), tk.type != TK_NULL)
+		parse_start(&as, tk);
+
+	res = malloc(sizeof(program_t));
+	res->labels = as.labels;
+	res->sections = as.section_list;
+	HMAP_free(&as.section_map);
+	return res;
+}
+#define HALFB(r) (0x0F & (r))
+
+static void	onereg(file_t *f, asm_t *ins, int r0)
+{
+	fw_u8(f, HALFB(ins->regs[r0]) << 4);
+}
+static void	tworeg(file_t *f, asm_t *ins, int r0)
+{
+	fw_u8(f, (HALFB(ins->regs[r0]) << 4) | HALFB(ins->regs[r0 + 1]));
+}
+static void	fourreg(file_t *f, asm_t *ins)
+{
+	fw_u8(f, (HALFB(ins->regs[0]) << 4) | HALFB(ins->regs[1]));
+	fw_u8(f, (HALFB(ins->regs[2]) << 4) | HALFB(ins->regs[3]));
+}
+static void	bitandreg(file_t *f, asm_t *ins)
+{
+	fw_u8(f, (HALFB(ins->evaluated_bit) << 4) | HALFB(ins->regs[0]));
+}
+
+static void	write_asm_instr(file_t *f, asm_t *ins)
+{
+	int r0;
+
+	r0 = 0;
+	fw_u8(f, ins->type);
+
+	switch (ins->instruction) {
+		case INSTR_CPRP:
+			fourreg(f, ins);
+			break;
+		case INSTR_BBS:
+		case INSTR_BBC:
+			bitandreg(f, ins);
+			break;
+		case INSTR_ADC:
+		case INSTR_ADD:
+		case INSTR_SBC:
+		case INSTR_SUB:
+		case INSTR_EOR:
+		case INSTR_ORR:
+		case INSTR_AND:
+		case INSTR_LDRW:
+		case INSTR_ADCW:
+		case INSTR_ADDW:
+		case INSTR_SBCW:
+		case INSTR_SUBW:
+		case INSTR_DECW:
+		case INSTR_INCW:
+			tworeg(f, ins, 0);
+			r0 += 2;
+			break;
+		case INSTR_LDR:
+		case INSTR_LDRB:
+		case INSTR_STR:
+		case INSTR_STRB:
+		case INSTR_CMP:
+		case INSTR_CRB:
+		case INSTR_SRB:
+		case INSTR_ASR:
+		case INSTR_LSR:
+		case INSTR_LSL:
+		case INSTR_NOT:
+		case INSTR_DEC:
+		case INSTR_INC:
+			onereg(f, ins, 0);
+			++r0;
+			break;
+		default:
+			break;
+	}
+	switch(ins->addr_mode) {
+		case ADDR_MODE_RELATIVE:
+			fw_u8(f, ins->evaluated_value);
+			break;
+		case ADDR_MODE_ABS_PTR_OFF:
+			tworeg(f, ins, r0);
+		case ADDR_MODE_IMMIDIATE:
+			fw_u16(f, ins->evaluated_value, IS_LITTLE_ENDIAN);
+			break;
+		case ADDR_MODE_ABS_IDX:
+			fw_u32(f, ins->evaluated_value, IS_LITTLE_ENDIAN);
+		case ADDR_MODE_ZP_PTR:
+		case ADDR_MODE_REG:
+			onereg(f, ins, r0);
+			break;
+		case ADDR_MODE_ABS:
+			fw_u32(f, ins->evaluated_value, IS_LITTLE_ENDIAN);
+			break;
+		case ADDR_MODE_ZP_IDX:
+		case ADDR_MODE_ABS_PTR:
+			tworeg(f, ins, r0);
+			break;
+		case ADDR_MODE_ABS_PTR_IDX:
+			tworeg(f, ins, r0);
+			onereg(f, ins, r0 + 2);
+			break;
+		case ADDR_MODE_ZP_OFF:
+			onereg(f, ins, r0);
+			fw_u16(f, ins->evaluated_value, IS_LITTLE_ENDIAN);
+			break;
+		case ADDR_MODE_NULL: return;
+	}
+	return;
+}
+
+static void	_write_asm_data(file_t *f, int type, int data)
+{
+	switch(type) {
+		case DATA_BYTE:
+			fw_u8(f, data);
+			break;
+		case DATA_WORD:
+			fw_u16(f, data, IS_LITTLE_ENDIAN);
+			break;
+		case DATA_LONG:
+			fw_u32(f, data, IS_LITTLE_ENDIAN);
+			break;
+		default:
+			BUG("UNEXPECTED: %s\n", __func__);
+	}
+}
+static void	write_asm_data(file_t *f, asm_t *data)
+{
+	int i;
+
+	if (data->type == DATA_ARRAY) {
+		for (i = 0; i < data->evaluated_array_len; i++)
+			_write_asm_data(f, data->array_type, data->evaluated_array[i]);
+		return;
+	}
+	if(data->type == DATA_STRING) {
+		fw_string(f, data->string);
+		return;
+	}
+
+	_write_asm_data(f, data->type, data->evaluated_data_value);
+}
+
+static void	write_asm(file_t *f, asm_t *a)
+{
+	if (a->type < DATA_BYTE)
+		write_asm_instr(f, a);
+	else
+		write_asm_data(f, a);
+}
+
+static void free_asm(asm_t **a)
+{
+	if ((*a)->type == DATA_STRING)
+		free((*a)->string);
+	if ((*a)->type == DATA_ARRAY)
+		free((*a)->evaluated_array);
+	free(*a);
+}
+
+void	assemble(
+	fstack_t	*in_files,
+	u64_t		final_addr,
+	const char	*entry_point,
+	const char	*interrupt_handler,
+	const char	*out_name)
+{
+	file_t		output;
+	tokenizer_t	*t;
+	program_t	*prog;
+	dla_t		*data;
+	u32_t		entry_point_ptr;
+	u32_t		interrupt_handler_ptr;
+
+	t = new_tokenizer(&in_files);
+
+	prog = parse(t);
+
+	data = link_program(
+		prog,
+		final_addr,
+		entry_point,
+		interrupt_handler,
+		&entry_point_ptr,
+		&interrupt_handler_ptr);
+	free(prog);
+
+	open_file(&output, out_name, MODE_WRITE);
+	FOREACH_DLA(data, i, section_t*, s, {
+		FOREACH_DLA(s->data, j, asm_t*, a, {
+			write_asm(&output, a);
+			free_asm(&a);
+		});
+		//FOREACH_VALUE(s->labels, def_t*, d, {
+		//	if (d != NULL)
+		//		free(d);
+		//});
+		//HMAP_free(&s->labels);
+		//DLA_free(&s->data);
+		//free(s);
+	});
+
+	DLA_free(&data);
+	fw_u32(&output, entry_point_ptr, IS_LITTLE_ENDIAN);
+	fw_u32(&output, interrupt_handler_ptr, IS_LITTLE_ENDIAN);
+	tokenizer_free(t);
+}
+
+
 
 static void print_deftype(def_t *d)
 {
@@ -1031,6 +1284,7 @@ static void print_deftype(def_t *d)
 		case DEF_DEFINED:	printf("defined");		break;
 	}
 }
+
 static void _print_constexpr(constexpr_t *exp, char *pre, bool final)
 {
 	char buff[4096];
@@ -1045,13 +1299,19 @@ static void _print_constexpr(constexpr_t *exp, char *pre, bool final)
 
 	switch(exp->type) {
 		case TK_INTEGER_LITERAL:
-			printf("─\e[1minteger literal\033[0m: \033[33;1;4m%i\033[0m\n", exp->token.int_val);
+			printf(
+				"─\e[1minteger literal\033[0m: \033[33;1;4m%i\033[0m\n",
+				exp->token.int_val);
 			return;
 		case TK_CHARACTER_LITERAL:
-			printf("─\e[1mcharacter literal\033[0m: \033[33;1;4m'%c'\033[0m\n", exp->token.int_val);
+			printf(
+				"─\e[1mcharacter literal\033[0m: \033[33;1;4m'%c'\033[0m\n",
+				exp->token.int_val);
 			return;
 		case TK_IDENT:
-			printf("─\e[1mlabel-ref\033[0m: \033[33;1;4m'%s'\033[0m (\033[34m", exp->token.str_val);
+			printf(
+				"─\e[1mlabel-ref\033[0m: \033[33;1;4m'%s'\033[0m (\033[34m",
+				exp->token.str_val);
 			print_deftype(exp->ref);
 			printf("\033[0m)\n");
 			return;

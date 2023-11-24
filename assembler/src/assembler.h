@@ -112,6 +112,12 @@ typedef struct program {
 
 
 void		print_constexpr(constexpr_t *ex);
+void	assemble(
+	fstack_t	*in_files,
+	u64_t		final_addr,
+	const char	*entry_point,
+	const char	*interrupt_handler,
+	const char	*out_name);
 program_t	*parse(tokenizer_t *t);
 
 void		program_free(program_t **p);

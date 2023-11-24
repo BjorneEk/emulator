@@ -35,16 +35,13 @@ typedef struct tokenizer {
 } tokenizer_t;
 
 
+void		(*tokenizer_free)(tokenizer_t *) = (void (*)(tokenizer_t *))free;
+
 static char esc_chars[256] = {
 	['a'] = '\a', ['b'] = '\b',   ['f'] = '\f',
 	['n'] = '\n', ['r'] = '\r',   ['t'] = '\t',
 	['v'] = '\v', ['e'] = '\033', ['E'] = '\033',
 };
-
-void		tk_close(tokenizer_t **tokenizer)
-{
-	free(*tokenizer);
-}
 
 static inline tpos_t tpos(tokenizer_t *t)
 {
@@ -940,6 +937,7 @@ tokenizer_t	*new_tokenizer(fstack_t **files)
 
 	return res;
 }
+
 
 
 tk_t		tk_prev(tokenizer_t *t)

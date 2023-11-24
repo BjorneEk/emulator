@@ -249,7 +249,7 @@ static void test_instruction(const struct ins_test *ins)
 		//pass_test("registers (%s)", ins->inp);
 
 		program_free(&p);
-		tk_close(&tk);
+		tokenizer_free(tk);
 		close_file(&tmp);
 		pass_test("instruction (%s)", ins->inp);
 		return;
@@ -282,7 +282,7 @@ static void test_instruction(const struct ins_test *ins)
 		//pass_test("registers (%s)", ins->inp);
 
 		program_free(&p);
-		tk_close(&tk);
+		tokenizer_free(tk);
 		close_file(&tmp);
 		//pass_test("instruction (%s)", ins_str);
 	}
@@ -313,7 +313,7 @@ static void test_big_program()
 	tk = tk_from_file(&tmp);
 	p = parse(tk);
 	program_free(&p);
-	tk_close(&tk);
+	tokenizer_free(tk);
 	close_file(&tmp);
 }
 

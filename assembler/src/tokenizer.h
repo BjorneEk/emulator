@@ -70,7 +70,6 @@ tokenizer_t	*new_tokenizer(fstack_t **files);
 tk_t		tk_next(tokenizer_t *tokenizer);
 tk_t		tk_prev(tokenizer_t *tokenizer);
 void		tk_rev(tokenizer_t *tokenizer, tk_t t);
-void		tk_close(tokenizer_t **tokenizer);
 
 void		tk_warning(tk_t tk, const char *fmt, ...);
 void		tk_error(tpos_t p, int tklen, const char *fmt, ...);
@@ -81,5 +80,5 @@ void		tk_type_tostring(int t, char *res);
 void		tk_print(tk_t t);
 void		tk_debug(tk_t t);
 
-void		tk_close(tokenizer_t **tokenizer);
+extern void		(*tokenizer_free)(tokenizer_t *);
 #endif /* _TOKENIZER_H_ */

@@ -14,11 +14,11 @@
 
 const char * const mode_map[3] = {
 	[MODE_READ] = "r",
-	[MODE_WRITE] = "w",
+	[MODE_WRITE] = "wb",
 	[MODE_READWRITE] = "rw"
 };
 
-static int get_fileext(const char *str)
+static int get_fileext(const char *str, int mode)
 {
 	if (*str != '.')
 		return EXT_BINARY;
@@ -26,11 +26,12 @@ static int get_fileext(const char *str)
 	if (str[1] == 'S' || str[1] == 's')
 		return EXT_ASM_FILE;
 
-	if ((str[1] == 'l' || str[1] == 'L') && (str[2] == 'd' || str[2] == 'D'))
-		return EXT_LINKER_SCRIPT;
+	if ((str[1] == 'b' || str[1] == 'B') && (str[2] == 'i' || str[2] == 'I') && (str[3] == 'n' || str[3] == 'N'))
+		return EXT_BINARY;
 
 	warn_custom("ASSEMBLER", "unsuported extension '%s', defaulting to .S (assembly file)", str);
 	return EXT_ASM_FILE;
+
 }
 
 void	open_file(file_t *res, const char *filename, int mode)
@@ -48,7 +49,7 @@ void	open_file(file_t *res, const char *filename, int mode)
 		;
 
 
-	res->extension = get_fileext(filename + i);
+	res->extension = get_fileext(filename + i, mode);
 	return;
 }
 static FILE *tmp(const char *restrict fmt, va_list args)
@@ -80,6 +81,46 @@ int	fnext(file_t *f)
 void fpb(file_t *f, int c)
 {
 	ungetc(c, f->fp);
+}
+
+void fw_u8(file_t *f, u8_t v)
+{
+	if (fputc(v, f->fp) == EOF)
+		error("Error writing u8 to the file: %s\n", f->filename);
+}
+void fw_u16(file_t *f, u16_t v, bool little_endian)
+{
+	if (!little_endian) {
+		fw_u8(f, (v & 0xFF00) >> 8);
+		fw_u8(f, (v & 0x00FF));
+	} else {
+		fw_u8(f, (v & 0x00FF));
+		fw_u8(f, (v & 0xFF00) >> 8);
+	}
+}
+void fw_u32(file_t *f, u32_t v, bool little_endian)
+{
+	if (!little_endian) {
+		fw_u16(f, (v & 0xFFFF0000) >> 16, little_endian);
+		fw_u16(f, (v & 0x0000FFFF), little_endian);
+	} else {
+		fw_u16(f, (v & 0x0000FFFF), little_endian);
+		fw_u16(f, (v & 0xFFFF0000) >> 16, little_endian);
+	}
+}
+
+void fw_string(file_t *f, char *s)
+{
+	while (*(s++) != '\0')
+		fw_u8(f, s[-1]);
+}
+void fw_string_len(file_t *f, char *s, int len)
+{
+	int i;
+
+	for (i = 0; i < len; i++)
+		fw_u8(f, s[i]);
+	fw_u8(f, '\0');
 }
 
 void	close_file(file_t *f)

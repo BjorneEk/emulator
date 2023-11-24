@@ -8,7 +8,7 @@
 #include "../arch/interface.h"
 
 
-const int endian = LITTLE_ENDIAN;
+const int endian = BIG_ENDIAN;
 
 const int addressing_mode_size[] = {
 	[ADDR_MODE_RELATIVE]	= 1,

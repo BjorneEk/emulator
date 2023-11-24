@@ -46,4 +46,10 @@ void	fpb(file_t *f, int c);
 
 void	close_file(file_t *f);
 
+void	fw_u8(file_t *f, u8_t v);
+void	fw_u16(file_t *f, u16_t v, bool little_endian);
+void	fw_u32(file_t *f, u32_t v, bool little_endian);
+void	fw_string(file_t *f, char *str);
+void	fw_string_len(file_t *f, char *s, int len);
+
 #endif /* _FILE_H_ */
