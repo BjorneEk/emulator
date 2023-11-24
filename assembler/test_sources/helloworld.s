@@ -8,13 +8,13 @@ INIT_STACK = #0xFFFF
 puts:
 	sub	sp, sp, #2
 	str	r2, [sp]
-
+puts_loop:
 	ldrb	r2, [r0, r1]
 	sub	r2, r2, '\0'
 	bz	puts_ret
 	strb	r2, [OUT]
 	incw	r0, r1
-	bra	puts
+	bra	puts_loop
 puts_ret:
 	ldrb	r2, '\n'
 	strb	r2, [OUT]
