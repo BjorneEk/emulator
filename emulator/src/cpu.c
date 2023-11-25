@@ -12,7 +12,6 @@ cpu_t *new_cpu(u32_t boot_location)
 	res->boot_location = boot_location;
 	res->interrupt_handler_location = 0;
 	res->nmi = false;
-	res->irq = false;
 	return res;
 }
 

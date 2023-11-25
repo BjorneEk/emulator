@@ -69,7 +69,7 @@ $(UNIT_TEST): $(UNIT_OBJ)
 	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
 
 run: $(TARGET)
-	./$(TARGET)
+	./$(TARGET) -i interrupt -e start -o prog.bin -sz 0xFFFFFFFF ../program/src/main.s
 
 test: $(UNIT_TEST)
 	./$(UNIT_TEST)

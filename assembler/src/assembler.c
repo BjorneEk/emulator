@@ -865,6 +865,7 @@ static void parse_data_lit(assembler_t *as, tk_t prev)
 		add_label_def(as, tk, DEF_DEFINED, as->current_section->size + 1);
 		consume(as, '='); /* not nececcary */
 		tk = next(as);
+		PARSE_ERROR(tk, "here");
 	} else if (tk.type == '=') {
 		tk = next(as);
 	}
@@ -875,7 +876,9 @@ static void parse_data_lit(assembler_t *as, tk_t prev)
 
 		res = new_data(as, tk, DATA_ARRAY, type_to_data_type(prev.type));
 		parse_array_data(as, res);
-
+		printf("array: ");
+		FOREACH_DLA(res->array_values, i, int, v, {printf("%i, ", v);})
+		printf("\n");
 		return;
 	}
 

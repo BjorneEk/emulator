@@ -1,4 +1,23 @@
 
+0: putchar debug NULL
+1: port a
+2: port a
+3: ddra 0=in, 1=out
+4: ddra 0=in, 1=out
+5: port b
+6: port b
+7: ddrb
+8: ddrb
+9: video-card-comm
+10: video-data
+11: video-data
+12: video-data
+13: vram-addr
+14: vram-addr
+15: vram-addr
+16: vram-addr
+
+0000 0000 0000 0000
 ps: carry, zero, interrupt, overflow, negative, break
 
 direct:
@@ -31,7 +50,7 @@ instructions:
 load and store:
 ldr     Rd                  - load register         all 0-10
 ldrb    Rd                  - load register byte    all 0-10
-ldrw    Rdh, Rdl            - load register wide    [reg] 10-20
+ldrw    Rdh, Rdl            - load register wide    [im, reg] 10-20
 str     Rd                  - store register        [im, reg]
 strb    Rd                  - store register byte   [im, reg]
 cprp    Rdh, Rdl, Rsh, Rsl  - copy register pair    (implied)

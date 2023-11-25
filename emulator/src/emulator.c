@@ -1,6 +1,7 @@
 #include "emulator.h"
 #include "cpu.h"
 #include "memory.h"
+#include "IO/io_emulator.h"
 #include "../../arch/interface.h"
 #include "../../common/util/types.h"
 #include "../../common/util/error.h"
@@ -15,6 +16,129 @@
 #define PC (em->cpu->pc)
 #define SP (em->cpu->regs[REG_STACK_POINTER])
 */
+static void write_long(emulator_t *em, u32_t address, u32_t data)
+{
+	memory_write_long(em->mem, address, data);
+}
+
+static void write_byte(emulator_t *em, u32_t address, u8_t data)
+{
+	switch (address) {
+		case 0:
+			printf("%c", (char)data);
+			break;
+		case ADDRESS_PORTA:
+			io_write_porta(em->io, ((u16_t)data) << 8, IO_INTERNAL_ACCESS);
+			break;
+		case ADDRESS_PORTA + 1:
+			io_write_porta(em->io, data, IO_INTERNAL_ACCESS);
+			break;
+		case ADDRESS_DDRA:
+			io_write_ddra(em->io, ((u16_t)data) << 8);
+			break;
+		case ADDRESS_DDRA + 1:
+			io_write_ddra(em->io, data);
+			break;
+		case ADDRESS_PORTB:
+			io_write_portb(em->io, ((u16_t)data) << 8, IO_INTERNAL_ACCESS);
+			break;
+		case ADDRESS_PORTB + 1:
+			io_write_portb(em->io, data, IO_INTERNAL_ACCESS);
+			break;
+		case ADDRESS_DDRB:
+			io_write_ddrb(em->io, ((u16_t)data) << 8);
+			break;
+		case ADDRESS_DDRB + 1:
+			io_write_ddrb(em->io, data);
+			break;
+		default:
+			memory_write_byte(em->mem, address, data);
+	}
+}
+
+static void write_word(emulator_t *em, u32_t address, u16_t data)
+{
+	switch (address) {
+		case 0:
+			printf("%c", (char)data);
+			break;
+		case ADDRESS_PORTA:
+			io_write_porta(em->io, data, IO_INTERNAL_ACCESS);
+			break;
+		case ADDRESS_PORTA + 1: exit_error("unaligned write to memory mapped io: 'port a'");
+		case ADDRESS_DDRA:
+			io_write_ddra(em->io, data);
+			break;
+		case ADDRESS_DDRA + 1: exit_error("unaligned write to memory mapped io: 'ddr a'");
+		case ADDRESS_PORTB:
+			io_write_portb(em->io, data, IO_INTERNAL_ACCESS);
+			break;
+		case ADDRESS_PORTB + 1: exit_error("unaligned write to memory mapped io: 'port b'");
+		case ADDRESS_DDRB:
+			io_write_ddrb(em->io, data);
+			break;
+		case ADDRESS_DDRB + 1: exit_error("unaligned write to memory mapped io: 'ddr b'");
+		default:
+			memory_write_word(em->mem, address, data);
+	}
+}
+
+static u32_t read_long(emulator_t *em, u32_t address)
+{
+	return memory_read_long(em->mem, address);
+}
+
+static u16_t read_word(emulator_t *em, u32_t address)
+{
+	switch (address) {
+		case 0:
+			error("read NULL\n");
+			return 0;
+		case ADDRESS_PORTA:
+			return io_read_porta(em->io, IO_INTERNAL_ACCESS);
+			break;
+		case ADDRESS_PORTA + 1: exit_error("unaligned read from memory mapped io: 'port a'");
+		case ADDRESS_DDRA:
+			return io_read_ddra(em->io);
+		case ADDRESS_DDRA + 1: exit_error("unaligned read from memory mapped io: 'ddr a'");
+		case ADDRESS_PORTB:
+			return io_read_portb(em->io, IO_INTERNAL_ACCESS);
+		case ADDRESS_PORTB + 1: exit_error("unaligned read from memory mapped io: 'port b'");
+		case ADDRESS_DDRB:
+			return io_read_ddrb(em->io);
+		case ADDRESS_DDRB + 1: exit_error("unaligned read from memory mapped io: 'ddr b'");
+		default:
+			return memory_read_word(em->mem, address);
+	}
+}
+
+static u8_t read_byte(emulator_t *em, u32_t address)
+{
+	switch (address) {
+		case 0:
+			error("read NULL\n");
+			return 0;
+		case ADDRESS_PORTA:
+			return io_read_porta(em->io, IO_INTERNAL_ACCESS) >> 8;
+		case ADDRESS_PORTA + 1:
+			return io_read_porta(em->io, IO_INTERNAL_ACCESS);
+		case ADDRESS_DDRA:
+			return io_read_ddra(em->io) >> 8;
+		case ADDRESS_DDRA + 1:
+			return io_read_ddra(em->io);
+		case ADDRESS_PORTB:
+			return io_read_portb(em->io, IO_INTERNAL_ACCESS) >> 8;
+		case ADDRESS_PORTB + 1:
+			return io_read_portb(em->io, IO_INTERNAL_ACCESS);
+		case ADDRESS_DDRB:
+			return io_read_ddrb(em->io) >> 8;
+		case ADDRESS_DDRB + 1:
+			return io_read_ddrb(em->io);
+		default:
+			return memory_read_byte(em->mem, address);
+	}
+}
+
 
 static u8_t fetch_byte(emulator_t *em)
 {
@@ -58,14 +182,14 @@ static void fetch_reg_pair(emulator_t *em, u16_t **reg_h, u16_t **reg_l)
 		*reg_l = em->cpu->regs + (reg_byte & 0x0F);
 }
 
-emulator_t *new_emulator(cpu_t *cpu, memory_t *mem)
+emulator_t *new_emulator(cpu_t *cpu, memory_t *mem, io_t *io)
 {
 	emulator_t *res;
 
 	res = malloc(sizeof(emulator_t));
-	res->cpu = cpu;
-	res->mem = mem;
-
+	res->cpu	= cpu;
+	res->mem	= mem;
+	res->io		= io;
 	return res;
 }
 
@@ -115,7 +239,7 @@ static u32_t get_absolute_address(emulator_t *em , addressing_mode_t addr_mode)
 	}
 }
 
-static u16_t get_word_indirect(emulator_t *em, addressing_mode_t addr_mode)
+static u16_t get_word_indirect(emulator_t *em, addressing_mode_t addr_mode, bool is_byte)
 {
 	u16_t *reg;
 
@@ -130,7 +254,9 @@ static u16_t get_word_indirect(emulator_t *em, addressing_mode_t addr_mode)
 			return *reg;
 		#define CASE_OF(am) case ADDR_MODE_##am :
 		XMACRO_DIRECT_ADDRESSING_MODES(CASE_OF)
-			return memory_read_word(em->mem, get_absolute_address(em, addr_mode));
+			if (is_byte)
+				return read_byte(em, get_absolute_address(em, addr_mode));
+			return read_word(em, get_absolute_address(em, addr_mode));
 		#undef CASE_OF
 
 		default:
@@ -149,7 +275,7 @@ static u32_t get_long_indirect(emulator_t *em, addressing_mode_t addr_mode)
 			return 0;
 		#define CASE_OF(am) case ADDR_MODE_##am :
 		XMACRO_DIRECT_ADDRESSING_MODES(CASE_OF)
-			return memory_read_long(em->mem, get_absolute_address(em, addr_mode));
+			return read_long(em, get_absolute_address(em, addr_mode));
 		#undef CASE_OF
 
 		default:
@@ -254,7 +380,7 @@ void binop(emulator_t *em, int addr_mode, perform_binop_t perform_op)
 
 	fetch_reg_pair(em, &reg_d, &reg_s);
 
-	rhs = get_word_indirect(em, addr_mode);
+	rhs = get_word_indirect(em, addr_mode, false);
 	alu_res = perform_op(em, *reg_s, rhs);
 
 	set_zn_flags(em, alu_res);
@@ -304,7 +430,7 @@ void binop_wide(emulator_t *em, int addr_mode, perform_binop_wide_t perform_op_w
 
 	lhs = (u32_t)(*reg_dh) << 16 | (u32_t)(*reg_dl);
 
-	rhs = get_word_indirect(em, addr_mode);
+	rhs = get_word_indirect(em, addr_mode, false);
 	alu_res = perform_op_wide(em, lhs, rhs);
 
 	set_zn_flags_wide(em, alu_res);
@@ -344,14 +470,13 @@ void unop(emulator_t *em, int ins, int addr_mode)
 			set_zn_flags(em, alu_res);
 			break;
 		case INSTR_CRB:
-			alu_res = *reg & ~(1 << get_word_indirect(em, addr_mode));
+			alu_res = *reg & ~(1 << get_word_indirect(em, addr_mode, false));
 			set_zn_flags(em, alu_res);
 			break;
 		case INSTR_SRB:
-			alu_res = *reg | (1 << get_word_indirect(em, addr_mode));
+			alu_res = *reg | (1 << get_word_indirect(em, addr_mode, false));
 			set_zn_flags(em, alu_res);
 			break;
-
 		default:
 			ERR();
 			break;
@@ -414,13 +539,10 @@ void branch_on_bit_in_register(emulator_t *em, bool bit_should_be_set)
 void load_register(emulator_t *em, int addr_mode, bool is_byte)
 {
 	u16_t *reg;
-	u16_t data;
 
 	fetch_reg_pair(em, &reg, NULL);
 
-	data = get_word_indirect(em, addr_mode);
-
-	*reg = is_byte ? data >> 8 : data;
+	*reg = get_word_indirect(em, addr_mode, is_byte);
 }
 
 void load_register_wide(emulator_t *em, int addr_mode)
@@ -446,9 +568,9 @@ void store_register(emulator_t *em, int addr_mode, bool is_byte)
 	addr = get_absolute_address(em, addr_mode);
 
 	if (is_byte)
-		memory_write_byte(em->mem, addr, *reg & 0xFF);
+		write_byte(em, addr, *reg & 0xFF);
 	else
-		memory_write_word(em->mem, addr, *reg);
+		write_word(em, addr, *reg);
 }
 
 static void	push_long(emulator_t *em, u32_t val)
@@ -493,7 +615,7 @@ int emulator_execute(emulator_t *em)
 		return 0;
 	}
 
-	if (cpu_get_flag(em->cpu, FLAG_INTERRUPT) && em->cpu->irq) {
+	if (cpu_get_flag(em->cpu, FLAG_INTERRUPT) && io_irq(em->io)) {
 		cpu_clear_flag(em->cpu, FLAG_INTERRUPT);
 		interrupt(em);
 	} else if (em->cpu->nmi) {

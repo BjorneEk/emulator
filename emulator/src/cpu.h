@@ -20,7 +20,6 @@ typedef struct cpu {
 	u32_t	boot_location;
 	u32_t	interrupt_handler_location;
 	bool	nmi;
-	bool	irq;
 } cpu_t;
 
 static const int FLAG_CARRY = 15;
