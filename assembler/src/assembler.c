@@ -360,6 +360,7 @@ static constexpr_t *binop(assembler_t *as, int precedency_level)
 	return lhs;
 
 found_first:
+
 	res = new_op_constexpr(tk);
 	if (tk.type == '-') {
 		res->type = '+';
@@ -865,7 +866,6 @@ static void parse_data_lit(assembler_t *as, tk_t prev)
 		add_label_def(as, tk, DEF_DEFINED, as->current_section->size + 1);
 		consume(as, '='); /* not nececcary */
 		tk = next(as);
-		PARSE_ERROR(tk, "here");
 	} else if (tk.type == '=') {
 		tk = next(as);
 	}
@@ -890,6 +890,7 @@ static void parse_data_lit(assembler_t *as, tk_t prev)
 	}
 
 	res = new_data(as, tk, type_to_data_type(prev.type), 0);
+	pb(as, tk);
 	res->data_value = expr(as);
 }
 u32_t check_val_regbit(tk_t tk, u64_t val)

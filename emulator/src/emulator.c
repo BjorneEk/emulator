@@ -9,6 +9,7 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 /*
 #define MEM (em->mem)
@@ -16,6 +17,7 @@
 #define PC (em->cpu->pc)
 #define SP (em->cpu->regs[REG_STACK_POINTER])
 */
+
 static void write_long(emulator_t *em, u32_t address, u32_t data)
 {
 	memory_write_long(em->mem, address, data);
@@ -597,11 +599,13 @@ void copy_register_pair(emulator_t *em)
 	*reg_dh = *reg_sh;
 	*reg_dl = *reg_sl;
 }
+
 static void interrupt(emulator_t *em)
 {
 	push_long(em, em->cpu->pc);
 	em->cpu->pc = em->cpu->interrupt_handler_location;
 }
+
 int emulator_execute(emulator_t *em)
 {
 	u8_t	opcode;
@@ -841,4 +845,85 @@ int emulator_execute(emulator_t *em)
 	}
 
 	return 0;
+}
+
+void debug(emulator_t *em)
+{
+	long i, j, k, cnt;
+	u8_t r;
+	u32_t addr;
+
+	printf("6502 emulator status\n");
+	printf("Registers:\n");
+	for (i = 0; i < 12; i++)
+		printf("r%li: %04X %i\n", i, em->cpu->regs[i], em->cpu->regs[i]);
+
+	printf("\033[43mPC\033[0m: %08X %i\n", em->cpu->pc, em->cpu->pc);
+	printf("\033[42mSP\033[0m: %04X %i\n\n", em->cpu->regs[12], em->cpu->regs[12]);
+
+	printf("STATUS REGISTER: \n");
+	printf("┌─┬─┬─┬─┬─┬─┬─┬─┐\n");
+	printf("│C│Z│I│U│B│U│V│N│\n");
+	printf("│%i│%i│%i│%i│%i│%i│%i│%i│\n",
+		cpu_get_flag(em->cpu, FLAG_CARRY),
+		cpu_get_flag(em->cpu, FLAG_ZERO),
+		cpu_get_flag(em->cpu, FLAG_INTERRUPT),
+		0,
+		cpu_get_flag(em->cpu, FLAG_BREAK),
+		0,
+		cpu_get_flag(em->cpu, FLAG_OVERFLOW),
+		cpu_get_flag(em->cpu, FLAG_NEGATIVE));
+	printf("└─┴─┴─┴─┴─┴─┴─┴─┘\n");
+
+	/*
+	printf("MEMORY:\n");
+	printf("┌─────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐\n");
+
+	for (i = r = cnt = 0; i < MEMORY_SIZE - 1; i += 0x10) {
+		if(i != 0 && !memcmp(&em->mem->data[i], &em->mem->data[i - 0x10], 0x10) &&
+			(em->cpu->pc < i || em->cpu->pc > (i + 0x0F)) && (em->cpu->regs[12] < i || em->cpu->regs[12] > (i + 0x0F))){
+			r = 1; cnt++; continue;
+		}
+
+		if (r) {
+			printf("│*%7li │                         │                         │        │        │\n",cnt);
+			r = cnt = 0;
+		}
+
+		printf("│%08lx ", i);
+
+		j = 0;
+		while (j < 2) {
+			printf("│ ");
+			for(k = 0; k < 0x8; k++) {
+				addr = (i+k+(j*0x8));
+				if (addr == em->cpu->pc)
+					printf("\033[43m%02x\033[0m ", em->mem->data[addr]);
+				else if (addr == em->cpu->regs[12])
+					printf("\033[42m%02x\033[0m ", em->mem->data[addr]);
+				else
+					printf("%02x ", em->mem->data[addr]);
+			}
+			j++;
+		}
+
+		j = 0;
+		while (j < 2) {
+			printf("│");
+			for(k = 0; k < 0x8; k++) {
+				addr = (i+k+(j*0x8));
+				if(31 < em->mem->data[addr] && 127 > em->mem->data[addr])
+					printf("%c", (char)em->mem->data[addr]);
+				else if(em->mem->data[addr] == 0)
+					printf("0");
+				else
+					printf("×");
+			}
+			j++;
+		}
+		printf("│");
+		printf("\n");
+	}
+	printf("└─────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘\n");
+	*/
 }

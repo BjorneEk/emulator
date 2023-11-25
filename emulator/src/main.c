@@ -18,9 +18,22 @@
 
 #define FAKE_KEY_PRESS IO_SIGNAL_CUSTOM
 
+/*
 static void *run_emulator(void *arg)
 {
 	emulator_t *em = arg;
+	int res;
+	do {
+		res = emulator_execute(em);
+	} while(res != 1);
+	return NULL;
+}
+*/
+
+static void *run_emulator(void *arg)
+{
+	emulator_t *em = arg;
+
 	int res;
 	do {
 		res = emulator_execute(em);
@@ -51,6 +64,12 @@ int main(int argc, const char *argv[])
 	em = new_emulator(cpu, mem, io);
 
 	memory_from_file(mem, argv[1]);
+	do {
+		res = emulator_execute(em);
+		printf("\033[H");
+		debug(em);
+	} while(res != 1);
+	/*
 	emulator_thread = start_emulator(em);
 	do {
 		res = fgetc(stdin);
@@ -59,6 +78,7 @@ int main(int argc, const char *argv[])
 		io_interrupt_and_wait_until_porta_read(io);
 	} while (res != 'x');
 	pthread_join(emulator_thread, NULL);
+	*/
 }
 
 void test(void)

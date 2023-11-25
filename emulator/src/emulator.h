@@ -24,4 +24,5 @@ emulator_t *new_emulator(cpu_t *cpu, memory_t *mem, io_t *io);
 
 i32_t emulator_execute(emulator_t *em);
 
+void debug(emulator_t *em);
 #endif /* _EMULATOR_H_ */

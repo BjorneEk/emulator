@@ -37,18 +37,12 @@ void memory_from_file(memory_t *mem, const char *filename)
 
 u8_t memory_read_byte(memory_t *mem, u32_t addr)
 {
-	//ASSERT(addr < MEMORY_SIZE);
 	return mem->data[addr];
 }
 
 void memory_write_byte(memory_t *mem, u32_t addr, u8_t data)
 {
-	ASSERT(addr < MEMORY_SIZE);
-
-	if (addr == 0)
-		printf("%c", (char)data);
-	else
-		mem->data[addr] = data;
+	mem->data[addr] = data;
 }
 
 u16_t memory_read_word(memory_t *mem, u32_t addr)

@@ -8,6 +8,8 @@
 6: port b
 7: ddrb
 8: ddrb
+
+
 9: video-card-comm
 10: video-data
 11: video-data
