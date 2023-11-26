@@ -513,7 +513,7 @@ static bool tk_reg(tokenizer_t *t, tk_t *tok)
 			goto not_found;
 		case 'r':
 		case 'b':
-			if(isdigit(c1 = next(t)) && (rn = digittoint(c1)) >= 0 && rn <= 11) {
+			if(isdigit(c1 = next(t)) && (rn = c1 - '0') >= 0 && rn <= 11) {
 				++t->column;
 				goto found;
 			}

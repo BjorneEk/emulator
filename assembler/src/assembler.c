@@ -88,6 +88,7 @@ static section_t *new_section(assembler_t *as, tk_t tk)
 	HMAP_add(as->section_map, tk.str_val, tk.tklen, res);
 	return res;
 }
+
 static asm_t *new_asm(assembler_t *as, tk_t tk)
 {
 	asm_t *res;
@@ -104,6 +105,7 @@ static asm_t *new_asm(assembler_t *as, tk_t tk)
 
 	return res;
 }
+
 static asm_t *new_instr(assembler_t *as, tk_t tk)
 {
 	asm_t *res;
@@ -122,6 +124,7 @@ static asm_t *new_instr(assembler_t *as, tk_t tk)
 	res->instruction_size	= instruction_size[res->instruction];
 	return res;
 }
+
 static int type_size(int type)
 {
 	switch(type) {
@@ -610,6 +613,7 @@ static int expect_reg(assembler_t *as, bool trailing_comma)
 	}
 	return tk.reg;
 }
+
 static int min_addr_mode(int instr)
 {
 	switch (instr) {
@@ -758,7 +762,6 @@ handle_addressing_mode:
 	return ins;
 }
 
-
 static void print_instr(asm_t *ins)
 {
 	static const char *ins_name_map[] = {
@@ -787,8 +790,8 @@ static void print_instr(asm_t *ins)
 			putchar(tolower(addr_mode_name_map[ins->addr_mode][i]));
 	}
 	putchar('\n');
-
 }
+
 static int type_to_data_type(int type)
 {
 	switch(type) {
@@ -893,6 +896,7 @@ static void parse_data_lit(assembler_t *as, tk_t prev)
 	pb(as, tk);
 	res->data_value = expr(as);
 }
+
 u32_t check_val_regbit(tk_t tk, u64_t val)
 {
 	if (val > 15)
@@ -904,6 +908,7 @@ u32_t check_val_regbit(tk_t tk, u64_t val)
 			val);
 	return (u8_t)val;
 }
+
 u32_t check_val8(tk_t tk, u64_t val)
 {
 	if ((i64_t)val > (i64_t)0xFF)
@@ -916,6 +921,7 @@ u32_t check_val8(tk_t tk, u64_t val)
 			(u8_t)val);
 	return (u8_t)val;
 }
+
 u32_t check_val16(tk_t tk, u64_t val)
 {
 	if ((i64_t)val > (i64_t)0xFFFF)
@@ -928,6 +934,7 @@ u32_t check_val16(tk_t tk, u64_t val)
 			(u16_t)val);
 	return (u16_t)val;
 }
+
 u32_t check_val32(tk_t tk, u64_t val)
 {
 	if ((i64_t)val > (i64_t)0xFFFFFFFF)
@@ -940,6 +947,7 @@ u32_t check_val32(tk_t tk, u64_t val)
 		(u32_t)val);
 	return (u32_t)val;
 }
+
 static void parse_start(assembler_t *as, tk_t t)
 {
 	char		str[100];
@@ -1000,8 +1008,6 @@ static void parse_start(assembler_t *as, tk_t t)
 				str);
 	}
 }
-
-
 
 static int	eval_type(constexpr_t **expr, int type)
 {
@@ -1127,21 +1133,25 @@ program_t *parse(tokenizer_t *t)
 	HMAP_free(&as.section_map);
 	return res;
 }
+
 #define HALFB(r) (0x0F & (r))
 
 static void	onereg(file_t *f, asm_t *ins, int r0)
 {
 	fw_u8(f, HALFB(ins->regs[r0]) << 4);
 }
+
 static void	tworeg(file_t *f, asm_t *ins, int r0)
 {
 	fw_u8(f, (HALFB(ins->regs[r0]) << 4) | HALFB(ins->regs[r0 + 1]));
 }
+
 static void	fourreg(file_t *f, asm_t *ins)
 {
 	fw_u8(f, (HALFB(ins->regs[0]) << 4) | HALFB(ins->regs[1]));
 	fw_u8(f, (HALFB(ins->regs[2]) << 4) | HALFB(ins->regs[3]));
 }
+
 static void	bitandreg(file_t *f, asm_t *ins)
 {
 	fw_u8(f, (HALFB(ins->evaluated_bit) << 4) | HALFB(ins->regs[0]));
@@ -1198,6 +1208,7 @@ static void	write_asm_instr(file_t *f, asm_t *ins)
 		default:
 			break;
 	}
+
 	switch(ins->addr_mode) {
 		case ADDR_MODE_RELATIVE:
 			fw_u8(f, ins->evaluated_value);
@@ -1249,6 +1260,7 @@ static void	_write_asm_data(file_t *f, int type, int data)
 			BUG("UNEXPECTED: %s\n", __func__);
 	}
 }
+
 static void	write_asm_data(file_t *f, asm_t *data)
 {
 	int i;
@@ -1330,8 +1342,6 @@ void	assemble(
 	fw_u32(&output, interrupt_handler_ptr, IS_LITTLE_ENDIAN);
 	tokenizer_free(t);
 }
-
-
 
 static void print_deftype(def_t *d)
 {

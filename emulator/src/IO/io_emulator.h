@@ -10,7 +10,6 @@
 
 #include "../../../common/util/types.h"
 #include <pthread.h>
-#include <sys/_pthread/_pthread_cond_t.h>
 
 typedef struct io_emulator io_t;
 
@@ -52,6 +51,7 @@ typedef struct io_emulator {
 } io_t;
 
 io_t	*new_io_emulator();
+
 void	io_write_ddra(io_t *io, u16_t data);
 void	io_write_ddrb(io_t *io, u16_t data);
 void	io_write_porta(io_t *io, u16_t data, io_access_type_t caller);
@@ -59,6 +59,7 @@ void	io_write_portb(io_t *io, u16_t data, io_access_type_t caller);
 
 u16_t	io_read_porta(io_t *io, io_access_type_t caller);
 u16_t	io_read_portb(io_t *io, io_access_type_t caller);
+
 static inline u16_t	io_read_ddra(io_t *io)
 {
 	return io->porta.ddr;
@@ -78,4 +79,5 @@ static inline bool io_irq(io_t *io)
 {
 	return io->irq;
 }
+
 #endif /* _IO_H_ */

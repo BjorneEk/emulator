@@ -11,13 +11,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-/*
-#define MEM (em->mem)
-#define REGS (em->cpu->regs)
-#define PC (em->cpu->pc)
-#define SP (em->cpu->regs[REG_STACK_POINTER])
-*/
-
 static void write_long(emulator_t *em, u32_t address, u32_t data)
 {
 	memory_write_long(em->mem, address, data);
@@ -140,7 +133,6 @@ static u8_t read_byte(emulator_t *em, u32_t address)
 			return memory_read_byte(em->mem, address);
 	}
 }
-
 
 static u8_t fetch_byte(emulator_t *em)
 {
@@ -330,7 +322,7 @@ static void set_carry_wide(emulator_t *em, u64_t alu_res)
 
 typedef u32_t (*perform_binop_t)(emulator_t*, u16_t, u16_t);
 
-u32_t adc_binop_func(emulator_t *em, u16_t reg_data, u16_t ext_data)
+static u32_t adc_binop_func(emulator_t *em, u16_t reg_data, u16_t ext_data)
 {
 	u32_t alu_res;
 
@@ -344,37 +336,37 @@ u32_t adc_binop_func(emulator_t *em, u16_t reg_data, u16_t ext_data)
 	return alu_res;
 }
 
-u32_t add_binop_func(emulator_t *em, u16_t reg_data, u16_t ext_data)
+static u32_t add_binop_func(emulator_t *em, u16_t reg_data, u16_t ext_data)
 {
 	return reg_data + ext_data;
 }
 
-u32_t sbc_binop_func(emulator_t *em, u16_t reg_data, u16_t ext_data)
+static u32_t sbc_binop_func(emulator_t *em, u16_t reg_data, u16_t ext_data)
 {
 	return adc_binop_func(em, reg_data, (u16_t)-ext_data);
 }
 
-u32_t sub_binop_func(emulator_t *em, u16_t reg_data, u16_t ext_data)
+static u32_t sub_binop_func(emulator_t *em, u16_t reg_data, u16_t ext_data)
 {
 	return add_binop_func(em, reg_data, (u16_t)-ext_data);
 }
 
-u32_t eor_binop_func(emulator_t *em, u16_t reg_data, u16_t ext_data)
+static u32_t eor_binop_func(emulator_t *em, u16_t reg_data, u16_t ext_data)
 {
 	return reg_data ^ ext_data;
 }
 
-u32_t orr_binop_func(emulator_t *em, u16_t reg_data, u16_t ext_data)
+static u32_t orr_binop_func(emulator_t *em, u16_t reg_data, u16_t ext_data)
 {
 	return reg_data | ext_data;
 }
 
-u32_t and_binop_func(emulator_t *em, u16_t reg_data, u16_t ext_data)
+static u32_t and_binop_func(emulator_t *em, u16_t reg_data, u16_t ext_data)
 {
 	return reg_data & ext_data;
 }
 
-void binop(emulator_t *em, int addr_mode, perform_binop_t perform_op)
+static void binop(emulator_t *em, int addr_mode, perform_binop_t perform_op)
 {
 	u16_t *reg_d, *reg_s;
 	u16_t rhs;
@@ -392,7 +384,7 @@ void binop(emulator_t *em, int addr_mode, perform_binop_t perform_op)
 
 typedef u64_t (*perform_binop_wide_t)(emulator_t*, u32_t, u16_t);
 
-u64_t adcw_binop_func(emulator_t *em, u32_t reg_data, u16_t ext_data)
+static u64_t adcw_binop_func(emulator_t *em, u32_t reg_data, u16_t ext_data)
 {
 	u64_t alu_res;
 
@@ -406,22 +398,22 @@ u64_t adcw_binop_func(emulator_t *em, u32_t reg_data, u16_t ext_data)
 	return alu_res;
 }
 
-u64_t addw_binop_func(emulator_t *em, u32_t reg_data, u16_t ext_data)
+static u64_t addw_binop_func(emulator_t *em, u32_t reg_data, u16_t ext_data)
 {
 	return reg_data + ext_data;
 }
 
-u64_t sbcw_binop_func(emulator_t *em, u32_t reg_data, u16_t ext_data)
+static u64_t sbcw_binop_func(emulator_t *em, u32_t reg_data, u16_t ext_data)
 {
 	return adcw_binop_func(em, reg_data, (u16_t)-ext_data);
 }
 
-u64_t subw_binop_func(emulator_t *em, u32_t reg_data, u16_t ext_data)
+static u64_t subw_binop_func(emulator_t *em, u32_t reg_data, u16_t ext_data)
 {
 	return addw_binop_func(em, reg_data, (u16_t)-ext_data);
 }
 
-void binop_wide(emulator_t *em, int addr_mode, perform_binop_wide_t perform_op_wide)
+static void binop_wide(emulator_t *em, int addr_mode, perform_binop_wide_t perform_op_wide)
 {
 	u16_t *reg_dh, *reg_dl;
 	u32_t lhs;
@@ -441,7 +433,7 @@ void binop_wide(emulator_t *em, int addr_mode, perform_binop_wide_t perform_op_w
 	*reg_dl = (u32_t)alu_res & 0xFFFF;
 }
 
-void unop(emulator_t *em, int ins, int addr_mode)
+static void unop(emulator_t *em, int ins, int addr_mode)
 {
 	u16_t *reg;
 	u32_t alu_res;
@@ -487,7 +479,7 @@ void unop(emulator_t *em, int ins, int addr_mode)
 	*reg = (u16_t)alu_res;
 }
 
-void unop_wide(emulator_t *em, int ins)
+static void unop_wide(emulator_t *em, int ins)
 {
 	u16_t *reg_dh, *reg_dl;
 	u32_t lhs;
@@ -516,7 +508,7 @@ void unop_wide(emulator_t *em, int ins)
 	*reg_dl = (u32_t)alu_res & 0xFFFF;
 }
 
-void relative_conditional_branch(emulator_t *em, bool should_branch)
+static void relative_conditional_branch(emulator_t *em, bool should_branch)
 {
 	if (should_branch)
 		em->cpu->pc = ((int)em->cpu->pc + (char)fetch_byte(em));
@@ -524,7 +516,7 @@ void relative_conditional_branch(emulator_t *em, bool should_branch)
 		em->cpu->pc += 1;
 }
 
-void branch_on_bit_in_register(emulator_t *em, bool bit_should_be_set)
+static void branch_on_bit_in_register(emulator_t *em, bool bit_should_be_set)
 {
 	u8_t value_reg_byte;
 	u8_t value;
@@ -538,7 +530,7 @@ void branch_on_bit_in_register(emulator_t *em, bool bit_should_be_set)
 	relative_conditional_branch(em, (reg & 1 << value) == bit_should_be_set);
 }
 
-void load_register(emulator_t *em, int addr_mode, bool is_byte)
+static void load_register(emulator_t *em, int addr_mode, bool is_byte)
 {
 	u16_t *reg;
 
@@ -547,7 +539,7 @@ void load_register(emulator_t *em, int addr_mode, bool is_byte)
 	*reg = get_word_indirect(em, addr_mode, is_byte);
 }
 
-void load_register_wide(emulator_t *em, int addr_mode)
+static void load_register_wide(emulator_t *em, int addr_mode)
 {
 	u16_t *reg_h, *reg_l;
 	u32_t long_data;
@@ -560,7 +552,7 @@ void load_register_wide(emulator_t *em, int addr_mode)
 	*reg_l = long_data & 0x00FF;
 }
 
-void store_register(emulator_t *em, int addr_mode, bool is_byte)
+static void store_register(emulator_t *em, int addr_mode, bool is_byte)
 {
 	u16_t *reg;
 	u32_t addr;
@@ -589,7 +581,7 @@ static u32_t	pop_long(emulator_t *em)
 	return res;
 }
 
-void copy_register_pair(emulator_t *em)
+static void copy_register_pair(emulator_t *em)
 {
 	u16_t *reg_dh, *reg_dl, *reg_sh, *reg_sl;
 
@@ -613,8 +605,12 @@ int emulator_execute(emulator_t *em)
 	u32_t	next_pc;
 
 	if (em->cpu->is_reset) {
-		em->cpu->pc = memory_read_long(em->mem, em->cpu->boot_location);
+		memory_debug(em->mem, em->cpu->boot_location, 16);
+		em->cpu->pc = memory_read_long(em->mem, em->cpu->boot_location) - 1; 
+		memory_debug(em->mem, em->cpu->pc, 16);
+
 		em->cpu->interrupt_handler_location = memory_read_long(em->mem, em->cpu->boot_location + 4);
+
 		em->cpu->is_reset = false;
 		return 0;
 	}
@@ -628,6 +624,8 @@ int emulator_execute(emulator_t *em)
 	}
 
 	opcode = fetch_byte(em);
+
+	printf("[%lu] %02X\n", em->cpu->pc, opcode);
 
 	switch (opcode) {
 		#define SINSTR_LDR(addr_mode) case SINSTR_LDR_##addr_mode :
@@ -837,7 +835,6 @@ int emulator_execute(emulator_t *em)
 		case SINSTR_BRK:
 			return 1;
 		case SINSTR_NOP:
-		 	em->cpu->pc += instruction_size[INSTR_NOP];
 			break;
 
 		default:
@@ -847,19 +844,19 @@ int emulator_execute(emulator_t *em)
 	return 0;
 }
 
-void debug(emulator_t *em)
+void emulator_debug(emulator_t *em)
 {
 	long i, j, k, cnt;
 	u8_t r;
 	u32_t addr;
 
-	printf("6502 emulator status\n");
+	printf("emulator status\n");
 	printf("Registers:\n");
 	for (i = 0; i < 12; i++)
-		printf("r%li: %04X %i\n", i, em->cpu->regs[i], em->cpu->regs[i]);
+		printf("r%li: %04X %u\n", i, em->cpu->regs[i], em->cpu->regs[i]);
 
-	printf("\033[43mPC\033[0m: %08X %i\n", em->cpu->pc, em->cpu->pc);
-	printf("\033[42mSP\033[0m: %04X %i\n\n", em->cpu->regs[12], em->cpu->regs[12]);
+	printf("PC: %08X %u\n", em->cpu->pc, em->cpu->pc);
+	printf("SP: %04X %u\n\n", em->cpu->regs[12], em->cpu->regs[12]);
 
 	printf("STATUS REGISTER: \n");
 	printf("┌─┬─┬─┬─┬─┬─┬─┬─┐\n");

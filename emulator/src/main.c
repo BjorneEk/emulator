@@ -65,9 +65,9 @@ int main(int argc, const char *argv[])
 
 	memory_from_file(mem, argv[1]);
 	do {
+		getchar();
 		res = emulator_execute(em);
-		printf("\033[H");
-		debug(em);
+		emulator_debug(em);
 	} while(res != 1);
 	/*
 	emulator_thread = start_emulator(em);
@@ -79,26 +79,4 @@ int main(int argc, const char *argv[])
 	} while (res != 'x');
 	pthread_join(emulator_thread, NULL);
 	*/
-}
-
-void test(void)
-{
-	cpu_t		*cpu;
-	memory_t	*mem;
-	emulator_t	*em;
-	cpu = new_cpu(0);
-	mem = new_memory();
-	em = new_emulator(cpu, mem, NULL);
-
-	memory_load_test(mem);
-
-	cpu_print(cpu);
-	emulator_execute(em);
-	cpu_print(cpu);
-	emulator_execute(em);
-	cpu_print(cpu);
-	emulator_execute(em);
-	cpu_print(cpu);
-	emulator_execute(em);
-	cpu_print(cpu);
 }

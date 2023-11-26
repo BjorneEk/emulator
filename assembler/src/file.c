@@ -11,7 +11,6 @@
 #include <stdio.h>
 #include <string.h>
 
-
 const char * const mode_map[3] = {
 	[MODE_READ] = "r",
 	[MODE_WRITE] = "wb",
@@ -52,6 +51,7 @@ void	open_file(file_t *res, const char *filename, int mode)
 	res->extension = get_fileext(filename + i, mode);
 	return;
 }
+
 static FILE *tmp(const char *restrict fmt, va_list args)
 {
 	FILE	*res;
@@ -61,6 +61,7 @@ static FILE *tmp(const char *restrict fmt, va_list args)
 	rewind(res);
 	return res;
 }
+
 __attribute__((format(printf, 3, 4)))
 void	ftemp_with(file_t *res, int ext, const char *restrict fmt, ...)
 {
@@ -88,6 +89,7 @@ void fw_u8(file_t *f, u8_t v)
 	if (fputc(v, f->fp) == EOF)
 		error("Error writing u8 to the file: %s\n", f->filename);
 }
+
 void fw_u16(file_t *f, u16_t v, bool little_endian)
 {
 	if (!little_endian) {
@@ -98,6 +100,7 @@ void fw_u16(file_t *f, u16_t v, bool little_endian)
 		fw_u8(f, (v & 0xFF00) >> 8);
 	}
 }
+
 void fw_u32(file_t *f, u32_t v, bool little_endian)
 {
 	if (!little_endian) {
@@ -115,6 +118,7 @@ void fw_string(file_t *f, char *s)
 		fw_u8(f, s[-1]);
 	fw_u8(f, '\0');
 }
+
 void fw_string_len(file_t *f, char *s, int len)
 {
 	int i;

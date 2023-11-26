@@ -14,12 +14,14 @@ memory_t *new_memory()
 
 	return res;
 }
+
 static u64_t file_len(const char *filename)
 {
 	struct stat st;
 
 	if (stat(filename, &st) == -1)
 		exit_error("failed to open file: %s\n", filename);
+
 	return st.st_size;
 }
 
@@ -91,20 +93,15 @@ void memory_write_long(memory_t *mem, u32_t addr, u32_t data)
 	memory_write_word(mem, addr + 2, data & 0xFFFF);
 }
 
-void memory_load_test(memory_t *mem)
+void memory_debug(memory_t *mem, u32_t addr, int nbr_bytes)
 {
-	memory_write_byte(mem, 0, SINSTR_LBRA_ABS);
-	memory_write_long(mem, 1, 0x0000FFFF);
+	unsigned long i;
 
-	memory_write_byte(mem, 0x0000FFFF, SINSTR_LDR_IMMIDIATE);
-	memory_write_byte(mem, 0x0000FFFF + 1, (u8_t)(REG_R5 << 4));
-	memory_write_word(mem, 0x0000FFFF + 2, 0x1000);
-
-	memory_write_byte(mem, 0x0000FFFF + 4, SINSTR_ADC_IMMIDIATE);
-	memory_write_byte(mem, 0x0000FFFF + 5, (u8_t)(REG_R6 << 4) | REG_R5);
-	memory_write_word(mem, 0x0000FFFF + 6, 0xF000);
-
-	memory_write_byte(mem, 0x0000FFFF + 8, SINSTR_ADC_IMMIDIATE);
-	memory_write_byte(mem, 0x0000FFFF + 9, (u8_t)(REG_R7 << 4) | REG_R5);
-	memory_write_word(mem, 0x0000FFFF + 10, 0x2000);
+	printf("---- MEMORY DEBUG ----\n");
+	for (i = 0; i < nbr_bytes; i++) {
+		if (addr + i >= MEMORY_SIZE)
+			break;
+		printf("[%08X] %02X\n", addr + i, memory_read_byte(mem, addr + i));
+	}
+	printf("---- END OF MEMORY DEBUG ----\n");
 }
