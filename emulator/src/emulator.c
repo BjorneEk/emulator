@@ -21,7 +21,7 @@ static void write_byte(emulator_t *em, u32_t address, u8_t data)
 {
 	switch (address) {
 		case 0:
-			printf("%c", (char)data);
+			BUG("%c", (char)data);
 			break;
 		case ADDRESS_PORTA:
 			io_write_porta(em->io, ((u16_t)data) << 8, IO_INTERNAL_ACCESS);
@@ -59,7 +59,7 @@ static void write_word(emulator_t *em, u32_t address, u16_t data)
 {
 	switch (address) {
 		case 0:
-			printf("%c", (char)data);
+			BUG("%c", (char)data);
 			break;
 		case ADDRESS_PORTA:
 			io_write_porta(em->io, data, IO_INTERNAL_ACCESS);
@@ -634,7 +634,6 @@ int emulator_execute(emulator_t *em)
 	opcode = fetch_byte(em);
 	//BUG("Instruction: ");
 	//print_sinstr(opcode);
-
 
 	switch (opcode) {
 		#define SINSTR_LDR(addr_mode) case SINSTR_LDR_##addr_mode :

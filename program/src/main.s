@@ -208,7 +208,7 @@ start:
 
 	call	[draw_chess_pattern]
 
-	srb	ps, #13
+	srb	ps, #13				; enable cpu hw interrupts
 	ldr	r0, #0
 	str	r0, [DDRB]			; set ddrb and ddra as input
 	str	r0, [DDRA]			; set ddrb as input

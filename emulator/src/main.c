@@ -68,7 +68,8 @@ int main(int argc, const char *argv[])
 	em = new_emulator(cpu, mem, io, vc);
 
 	memory_from_file(mem, argv[1]);
-	/*do {
+	/*
+	do {
 		getchar();
 		res = emulator_execute(em);
 		emulator_debug(em);
@@ -79,8 +80,7 @@ int main(int argc, const char *argv[])
 		res = fgetc(stdin);
 		io_write_portb(io, (char)res, IO_DEVICE_ACCESS);
 		io_write_porta(io, FAKE_KEY_PRESS, IO_DEVICE_ACCESS);
-		io_interrupt_and_wait_until_porta_read(io);
+		io_interrupt_and_wait_until_portb_read(io);
 	} while (res != 'x');
 	pthread_join(emulator_thread, NULL);
-
 }
