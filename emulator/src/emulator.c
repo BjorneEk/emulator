@@ -1,4 +1,5 @@
 #include "emulator.h"
+#include "IO/video_card.h"
 #include "cpu.h"
 #include "memory.h"
 #include "IO/io_emulator.h"
@@ -46,6 +47,9 @@ static void write_byte(emulator_t *em, u32_t address, u8_t data)
 		case ADDRESS_DDRB + 1:
 			io_write_ddrb(em->io, data);
 			break;
+		case ADDRESS_GRAPHICS_CARD_COMM:
+			vc_send(em->vc, data);
+			break;
 		default:
 			memory_write_byte(em->mem, address, data);
 	}
@@ -73,6 +77,9 @@ static void write_word(emulator_t *em, u32_t address, u16_t data)
 			io_write_ddrb(em->io, data);
 			break;
 		case ADDRESS_DDRB + 1: exit_error("unaligned write to memory mapped io: 'ddr b'");
+		case ADDRESS_GRAPHICS_CARD_COMM:
+			vc_send(em->vc, data); // might be bad, maybe exit_error
+			break;
 		default:
 			memory_write_word(em->mem, address, data);
 	}
@@ -176,7 +183,7 @@ static void fetch_reg_pair(emulator_t *em, u16_t **reg_h, u16_t **reg_l)
 		*reg_l = em->cpu->regs + (reg_byte & 0x0F);
 }
 
-emulator_t *new_emulator(cpu_t *cpu, memory_t *mem, io_t *io)
+emulator_t *new_emulator(cpu_t *cpu, memory_t *mem, io_t *io, video_card_t *vc)
 {
 	emulator_t *res;
 
@@ -184,6 +191,7 @@ emulator_t *new_emulator(cpu_t *cpu, memory_t *mem, io_t *io)
 	res->cpu	= cpu;
 	res->mem	= mem;
 	res->io		= io;
+	res->vc		= vc;
 	return res;
 }
 

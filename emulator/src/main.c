@@ -7,6 +7,7 @@
  *==========================================================*/
 
 #include "IO/io_emulator.h"
+#include "IO/video_card.h"
 #include "emulator.h"
 #include "cpu.h"
 #include "memory.h"
@@ -54,6 +55,7 @@ int main(int argc, const char *argv[])
 	cpu_t		*cpu;
 	memory_t	*mem;
 	io_t		*io;
+	video_card_t	*vc;
 	emulator_t	*em;
 	pthread_t	emulator_thread;
 
@@ -63,7 +65,8 @@ int main(int argc, const char *argv[])
 	cpu = new_cpu(0xFFFFFFFF - 7);
 	mem = new_memory();
 	io = new_io_emulator();
-	em = new_emulator(cpu, mem, io);
+	vc = new_video_card(mem, ADDRESS_GRAPHICS_CARD_DATA, ADDRESS_GRAPHICS_CARD_ADDRESS);
+	em = new_emulator(cpu, mem, io, vc);
 
 	memory_from_file(mem, argv[1]);
 	/*do {

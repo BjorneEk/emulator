@@ -9,6 +9,7 @@
 #ifndef _EMULATOR_H_
 #define _EMULATOR_H_
 
+#include "IO/video_card.h"
 #include "cpu.h"
 #include "memory.h"
 #include "IO/io_emulator.h"
@@ -18,9 +19,10 @@ typedef struct emulator {
 	cpu_t		*cpu;
 	memory_t	*mem;
 	io_t		*io;
+	video_card_t	*vc;
 } emulator_t;
 
-emulator_t *new_emulator(cpu_t *cpu, memory_t *mem, io_t *io);
+emulator_t *new_emulator(cpu_t *cpu, memory_t *mem, io_t *io, video_card_t *vc);
 
 i32_t emulator_execute(emulator_t *em);
 
