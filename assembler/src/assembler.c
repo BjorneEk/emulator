@@ -677,7 +677,6 @@ static asm_t *instr(assembler_t *as, tk_t t)
 
 	ins = new_instr(as, t);
 
-
 	switch (ins->instruction) {
 		case INSTR_CPRP:
 			ins->regs[ins->nregs++] = expect_reg(as, true);
@@ -1066,7 +1065,8 @@ static dla_t *link_program(
 	u64_t	addr;
 	section_t *s1;
 
-	addr = final_addr - 8;
+	// addr = final_addr - 8;
+	addr = final_addr - 7;
 
 	for(i = p->sections->len-1; i >= 0; i--) {
 		s1 = *(section_t**)DLA_get(p->sections, i);
@@ -1076,8 +1076,10 @@ static dla_t *link_program(
 			if (d->type == DEF_DEFINED) {
 				d->val += addr;
 				d->type = DEF_ABSOLUTE;
-				if (strncmp(d->lbl, entry_point, strlen(entry_point)) == 0)
+				if (strncmp(d->lbl, entry_point, strlen(entry_point)) == 0) {
 					*epp = d->val;
+					printf("epp = %08X\n", d->val);
+				}
 				else if (strncmp(d->lbl, interrupt_handler, strlen(interrupt_handler)) == 0)
 					*ihp = d->val;
 			}
@@ -1338,6 +1340,7 @@ void	assemble(
 	});
 
 	DLA_free(&data);
+	printf("entry_point_ptr = %08X\n", entry_point_ptr);
 	fw_u32(&output, entry_point_ptr, IS_LITTLE_ENDIAN);
 	fw_u32(&output, interrupt_handler_ptr, IS_LITTLE_ENDIAN);
 	tokenizer_free(t);

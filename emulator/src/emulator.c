@@ -606,7 +606,7 @@ int emulator_execute(emulator_t *em)
 
 	if (em->cpu->is_reset) {
 		memory_debug(em->mem, em->cpu->boot_location, 16);
-		em->cpu->pc = memory_read_long(em->mem, em->cpu->boot_location) - 1; 
+		em->cpu->pc = memory_read_long(em->mem, em->cpu->boot_location); 
 		memory_debug(em->mem, em->cpu->pc, 16);
 
 		em->cpu->interrupt_handler_location = memory_read_long(em->mem, em->cpu->boot_location + 4);
