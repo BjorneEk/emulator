@@ -28,6 +28,7 @@ enum parser_types {
 
 	EXPRESSION
 };
+
 typedef struct constexpr constexpr_t;
 
 typedef struct def {
@@ -36,8 +37,6 @@ typedef struct def {
 	int		val;
 	tk_t		tk;
 } def_t;
-
-
 
 typedef struct constexpr {
 	int type;
@@ -60,8 +59,6 @@ typedef struct section {
 	bool		has_raw_data;
 	u32_t		begin_addr;
 } section_t;
-
-
 
 typedef struct asm_entry {
 

@@ -58,7 +58,8 @@ int main(int argc, const char *argv[])
 
 	int res;
 
-	cpu = new_cpu(0xFFFFFFFF - 8);
+	// cpu = new_cpu(0xFFFFFFFF - 8);
+	cpu = new_cpu(0xFFFFFFFF - 7);
 	mem = new_memory();
 	io = new_io_emulator();
 	em = new_emulator(cpu, mem, io);
