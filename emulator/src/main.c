@@ -61,8 +61,7 @@ int main(int argc, const char *argv[])
 
 	int res;
 
-	// cpu = new_cpu(0xFFFFFFFF - 8);
-	cpu = new_cpu(0xFFFFFFFF - 7);
+	cpu = new_cpu(MEMORY_SIZE - 8);
 	mem = new_memory();
 	io = new_io_emulator();
 	vc = new_video_card(mem, ADDRESS_GRAPHICS_CARD_DATA, ADDRESS_GRAPHICS_CARD_ADDRESS);

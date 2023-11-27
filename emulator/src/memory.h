@@ -14,7 +14,6 @@
 #include <stdio.h>
 
 #define MEMORY_SIZE (0x100000000)
-//#define MEMORY_SIZE (0xFFFFFFFF)
 
 typedef struct memory {
 	u8_t data[MEMORY_SIZE];

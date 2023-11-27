@@ -1,4 +1,5 @@
 *.o
+*.bin
 *.aux
 *.fdb_latexmk
 *.fls
