@@ -21,7 +21,7 @@ debug_char:
 	str	r1, [sp]
 
 	ldr	r1, #10 ;'\n'
-	str	r1, [OUT]
+	;str	r1, [OUT]
 	str	r0, [OUT]
 	str	r1, [OUT]
 	ldr	r1, [sp]
@@ -48,15 +48,21 @@ enable_interrupt_controller:
 ; r0 = interrupt type
 ; r1 = scancode
 debug_keypress_handler:
+
 	ldr	r0, r1
+	sub	r1, r1, 'q'
+	bz	exit_program
 	call	[debug_char]
 	ret
 
+exit_program:
+	brk
 
 ; program entry point
 start:
 	ldr	sp, INIT_STACK ; initialize stack-pointer
 
+	srb	ps, #13
 	ldr	r0, #0
 	str	r0, [DDRB]			; set ddrb and ddra as input
 	str	r0, [DDRA]			; set ddrb as input

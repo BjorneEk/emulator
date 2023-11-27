@@ -143,11 +143,11 @@ static asm_t *new_data(assembler_t *as, tk_t tk, int type, int array_type)
 	asm_t *res;
 	int size_type;
 
-	if (!as->current_section->has_raw_data && as->current_section->size != 0)
-		PARSE_WARNING(
-			tk,
-			"mixing data and instructions in same section (%s)",
-			as->current_section->tk.str_val);
+	//if (!as->current_section->has_raw_data && as->current_section->size != 0)
+	//	PARSE_WARNING(
+	//		tk,
+	//		"mixing data and instructions in same section (%s)",
+	//		as->current_section->tk.str_val);
 
 	res = new_asm(as, tk);
 	res->type = type;
@@ -230,10 +230,12 @@ static void add_label_def(assembler_t *as, tk_t tk, int type, int val)
 {
 	def_t *l;
 	l = HMAP_get(as->labels, tk.str_val, tk.tklen);
+	BUG("label definition: %s: (0x%08X)\n", tk.str_val, val);
 	if (l != NULL && (l->type == DEF_ABSOLUTE || l->type == DEF_DEFINED)) {
 		PARSE_ERROR(tk, "Redefenition of label %s, previously defined here: file: %s, line: %i, col: %i",
 		tk.str_val, l->tk.debug.file, l->tk.debug.line + 1, l->tk.debug.column + 1);
 	} else if (l != NULL) {
+
 		l->type	= type;
 		l->tk	= tk;
 		l->val	= val;
@@ -242,6 +244,7 @@ static void add_label_def(assembler_t *as, tk_t tk, int type, int val)
 		HMAP_add(as->current_section->labels, l->tk.str_val, l->tk.tklen, l);
 		return;
 	}
+
 	l = new_def(type, tk.str_val, tk);
 	l->val = val;
 	HMAP_add(as->current_section->labels, l->tk.str_val, l->tk.tklen, l);
@@ -775,10 +778,10 @@ static void print_instr(asm_t *ins)
 	};
 	int i;
 
-	printf("instruction: ");
+	printf("ins: (0x%08X): ", ins->rel_addr);
+	print_sinstr(ins->type);
 	for (i = 0; ins_name_map[ins->instruction][i] != '\0'; ++i)
 		putchar(tolower(ins_name_map[ins->instruction][i]));
-	printf(", opcode(0x%x), ", ins->type);
 	if (ins->addr_mode == ADDR_MODE_RELATIVE){
 		printf(", relative");
 	} else if (ins->addr_mode != ADDR_MODE_NULL && ins->addr_mode) {
@@ -853,7 +856,7 @@ static void parse_string_data(assembler_t *as, asm_t *res)
 			break;
 	}
 	res->string = str;
-	res->data_size *= len + 1;
+	res->data_size *= len;
 	as->current_section->size += res->data_size;
 }
 
@@ -865,7 +868,7 @@ static void parse_data_lit(assembler_t *as, tk_t prev)
 	tk = next(as);
 
 	if (tk.type == TK_IDENT) {
-		add_label_def(as, tk, DEF_DEFINED, as->current_section->size + 1);
+		add_label_def(as, tk, DEF_DEFINED, as->current_section->size);
 		consume(as, '='); /* not nececcary */
 		tk = next(as);
 	} else if (tk.type == '=') {
@@ -894,6 +897,7 @@ static void parse_data_lit(assembler_t *as, tk_t prev)
 	res = new_data(as, tk, type_to_data_type(prev.type), 0);
 	pb(as, tk);
 	res->data_value = expr(as);
+	as->current_section->size += res->data_size;
 }
 
 u32_t check_val_regbit(tk_t tk, u64_t val)
@@ -969,7 +973,7 @@ static void parse_start(assembler_t *as, tk_t t)
 			if (as->current_section == NULL)
 				PARSE_ERROR(t, "Expected section before label definition");
 			if (consume(as, ':')) {
-				add_label_def(as, t, DEF_DEFINED, as->current_section->size + 1);
+				add_label_def(as, t, DEF_DEFINED, as->current_section->size);
 				return;
 			}
 			if (consume(as, '=')) {
@@ -1042,8 +1046,10 @@ static void	eval_instr(asm_t *a)
 		case ADDR_MODE_RELATIVE:
 			dest = check_val32(a->token, solve_constexpr(&a->value, false));
 
-			rel_jmp = dest - (a->rel_addr + a->addr_mode_size + a->instruction_size);
-			printf("rel dest for(0x%x): %i\n", a->type, rel_jmp);
+			rel_jmp = (dest - (a->rel_addr + a->addr_mode_size + a->instruction_size));
+			printf("rel dest for: ");
+			print_sinstr(a->type);
+			printf("(0x%08X) -> (0x%08X): %i\n",a->rel_addr + a->addr_mode_size + a->instruction_size, dest, rel_jmp);
 			if (rel_jmp > 127 || rel_jmp < -128)
 				PARSE_ERROR(a->token, "relative jump distance to large must be in range (-128, 127), is %i", rel_jmp);
 			a->evaluated_value = rel_jmp;
@@ -1071,16 +1077,19 @@ static dla_t *link_program(
 	for(i = p->sections->len-1; i >= 0; i--) {
 		s1 = *(section_t**)DLA_get(p->sections, i);
 		addr -= s1->size;
+		BUG("section size: %i" , s1->size);
 		s1->begin_addr = addr;
 		FOREACH_VALUE(s1->labels, def_t*, d, {
 			if (d->type == DEF_DEFINED) {
-				d->val += addr;
+
 				d->type = DEF_ABSOLUTE;
+				BUG("lbl_defined '%s': 0x%08X (0x%08X)\n", d->lbl, d->val, (int)(d->val + addr));
+				d->val += addr;
 				if (strncmp(d->lbl, entry_point, strlen(entry_point)) == 0) {
 					*epp = d->val;
 					printf("epp = %08X\n", d->val);
 				}
-				else if (strncmp(d->lbl, interrupt_handler, strlen(interrupt_handler)) == 0)
+				else if (strcmp(d->lbl, interrupt_handler) == 0)
 					*ihp = d->val;
 			}
 		});

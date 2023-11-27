@@ -9,6 +9,7 @@
 #define _IO_H_
 
 #include "../../../common/util/types.h"
+#include "../../../common/util/error.h"
 #include <pthread.h>
 
 typedef struct io_emulator io_t;

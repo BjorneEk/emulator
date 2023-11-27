@@ -101,7 +101,7 @@ void memory_debug(memory_t *mem, u32_t addr, int nbr_bytes)
 	for (i = 0; i < nbr_bytes; i++) {
 		if (addr + i >= MEMORY_SIZE)
 			break;
-		printf("[%08X] %02X\n", addr + i, memory_read_byte(mem, addr + i));
+		printf("[%08lX] %02X\n", addr + i, memory_read_byte(mem, addr + i));
 	}
 	printf("---- END OF MEMORY DEBUG ----\n");
 }

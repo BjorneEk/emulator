@@ -10,6 +10,7 @@
 #include "../../../common/util/bit.h"
 #include <pthread.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #define BIT_IS(_v, _b, _st) (((_v) & (1 << (_b))) == (_st))
 #define DO_LOCKED(_lock, _stmt) do {		\
@@ -99,6 +100,7 @@ static u16_t	read_portb_and_clear_interrupt(io_t *io, io_access_type_t caller)
 
 void	io_write_porta(io_t *io, u16_t data, io_access_type_t caller) MONITOR(&io->mutex,
 {
+
 	if (caller == IO_INTERNAL_ACCESS) {
 		switch(msb_16(data)) {
 			case IO_SIGNAL_ENABLE_INTERRUPT:
@@ -175,6 +177,7 @@ void	io_interrupt_and_wait(io_t *io)
 
 void	io_interrupt_and_wait_until_porta_read(io_t *io)
 {
+
 	_interrupt_and_wait(io, &io->read_porta, read_porta_and_clear_interrupt);
 }
 

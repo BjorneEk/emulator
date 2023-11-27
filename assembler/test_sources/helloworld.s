@@ -19,7 +19,7 @@ puts_ret:
 	ldr	r2, [sp]
 	add	sp, sp, #2
 	ret
-main:
+start:
 	ldr	sp, INIT_STACK ; initialize stack-pointer
 
 	; call puts to print greeting

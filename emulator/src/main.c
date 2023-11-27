@@ -12,6 +12,7 @@
 #include "memory.h"
 #include "util/types.h"
 #include "../../arch/interface.h"
+#include "../../common/util/error.h"
 
 #include <stdio.h>
 #include <pthread.h>
@@ -65,12 +66,12 @@ int main(int argc, const char *argv[])
 	em = new_emulator(cpu, mem, io);
 
 	memory_from_file(mem, argv[1]);
-	do {
+	/*do {
 		getchar();
 		res = emulator_execute(em);
 		emulator_debug(em);
 	} while(res != 1);
-	/*
+	*/
 	emulator_thread = start_emulator(em);
 	do {
 		res = fgetc(stdin);
@@ -79,5 +80,5 @@ int main(int argc, const char *argv[])
 		io_interrupt_and_wait_until_porta_read(io);
 	} while (res != 'x');
 	pthread_join(emulator_thread, NULL);
-	*/
+
 }

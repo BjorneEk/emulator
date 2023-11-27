@@ -510,10 +510,12 @@ static void unop_wide(emulator_t *em, int ins)
 
 static void relative_conditional_branch(emulator_t *em, bool should_branch)
 {
-	if (should_branch)
-		em->cpu->pc = ((int)em->cpu->pc + (char)fetch_byte(em));
-	else
-		em->cpu->pc += 1;
+	char rel;
+	rel = fetch_byte(em);
+	if (should_branch) {
+		//BUG("Relative branch: %i result [0x%08X]\n", rel, (int)em->cpu->pc + rel);
+		em->cpu->pc = ((int)em->cpu->pc + rel);
+	}
 }
 
 static void branch_on_bit_in_register(emulator_t *em, bool bit_should_be_set)
@@ -605,12 +607,10 @@ int emulator_execute(emulator_t *em)
 	u32_t	next_pc;
 
 	if (em->cpu->is_reset) {
-		memory_debug(em->mem, em->cpu->boot_location, 16);
-		em->cpu->pc = memory_read_long(em->mem, em->cpu->boot_location); 
-		memory_debug(em->mem, em->cpu->pc, 16);
-
+		//memory_debug(em->mem, em->cpu->boot_location, 16);
+		em->cpu->pc = memory_read_long(em->mem, em->cpu->boot_location);
+		//memory_debug(em->mem, em->cpu->pc, 16);
 		em->cpu->interrupt_handler_location = memory_read_long(em->mem, em->cpu->boot_location + 4);
-
 		em->cpu->is_reset = false;
 		return 0;
 	}
@@ -622,10 +622,11 @@ int emulator_execute(emulator_t *em)
 		em->cpu->nmi = false;
 		interrupt(em);
 	}
-
+	//BUG("PC: [0x%08X]\n", em->cpu->pc);
 	opcode = fetch_byte(em);
+	//BUG("Instruction: ");
+	//print_sinstr(opcode);
 
-	printf("[%lu] %02X\n", em->cpu->pc, opcode);
 
 	switch (opcode) {
 		#define SINSTR_LDR(addr_mode) case SINSTR_LDR_##addr_mode :
@@ -706,6 +707,7 @@ int emulator_execute(emulator_t *em)
 		case SINSTR_CALL_ZP_PTR:
 			addr_mode = opcode - INSTR_CALL + ADDR_MODE_ABS;
 			next_pc = get_absolute_address(em, addr_mode);
+			//BUG("Call: [0x%08X]\n", next_pc);
 			push_long(em, em->cpu->pc);
 			em->cpu->pc = next_pc;
 			break;
@@ -714,6 +716,7 @@ int emulator_execute(emulator_t *em)
 			cpu_set_flag(em->cpu, FLAG_INTERRUPT);
 		case SINSTR_RET:
 			em->cpu->pc = pop_long(em);
+			//BUG("Return to: [0x%08X]\n", em->cpu->pc);
 			break;
 
 		#define SINSTR_ADC(addr_mode) case SINSTR_ADC_##addr_mode :

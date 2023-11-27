@@ -6,7 +6,7 @@
  *==========================================================*/
 
 #include "../arch/interface.h"
-
+#include <stdio.h>
 
 const int endian = BIG_ENDIAN;
 
@@ -390,3 +390,11 @@ const int supported_addressing_modes[INSTR_NULL][ADDR_MODE_NULL] = {
 		ADDR_MODE_ZP_IDX,	ADDR_MODE_NULL
 	},
 };
+
+void print_sinstr(int sinstr)
+{
+	switch(sinstr){
+	#define SINSTR_CASE(name) case SINSTR_##name: printf("%s\n", #name); break;
+		XMACRO_SUBINSTRUCTIONS(SINSTR_CASE)
+	}
+}
