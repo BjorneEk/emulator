@@ -6,6 +6,7 @@ SOURCE_DIR:=src
 INSTRUCTIONS_DIR:=../arch
 UNIT_TEST_DIR:=$(SOURCE_DIR)/unit-tests
 COMMON_DIR:=../common
+INSTALL_DIR:=../program
 
 MAIN_SOURCE:=$(SOURCE_DIR)/main.c
 
@@ -70,6 +71,10 @@ $(UNIT_TEST): $(UNIT_OBJ)
 
 run: $(TARGET)
 	./$(TARGET) -i interrupt -e start -o prog.bin -sz 0xFFFFFFFF ../program/src/main.s
+
+install: $(TARGET)
+	rm $(INSTALL_DIR)/$(TARGET)
+	cp $(TARGET) $(INSTALL_DIR)
 
 test: $(UNIT_TEST)
 	./$(UNIT_TEST)

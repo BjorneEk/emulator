@@ -4,6 +4,7 @@ TARGET=emulator
 SOURCE_DIR:=src
 INSTRUCTIONS_DIR:=../arch
 COMMON_DIR:=../common
+INSTALL_DIR:=../program
 
 SOURCE_FILES:=$(wildcard $(SOURCE_DIR)/*.c $(SOURCE_DIR)/*/*.c)
 SOURCE_FILES+=$(wildcard $(INSTRUCTIONS_DIR)/*.c $(INSTRUCTIONS_DIR)/*/*.c)
@@ -52,6 +53,10 @@ $(TARGET): $(OBJ)
 
 run: $(TARGET)
 	./$(TARGET)
+
+install: $(TARGET)
+	rm $(INSTALL_DIR)/$(TARGET)
+	cp $(TARGET) $(INSTALL_DIR)
 
 clean:
 	$(RM)	$(OBJ)

@@ -8,3 +8,6 @@
 assembler/assembler
 assembler/assembler-unit-test
 emulator/emulator
+
+program/assembler
+program/emulator
