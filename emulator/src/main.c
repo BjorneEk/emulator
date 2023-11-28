@@ -72,27 +72,31 @@ static pthread_t start_emulator(emulator_t *em)
 	return thread;
 }
 
-static void	update_frambuffer(video_card_t *vc)
+static void	update_framebuffer(video_card_t *vc)
 {
 	free(FRAMEBUFFER_IMAGE->data);
 	FRAMEBUFFER_IMAGE->data = vc_get_render_buffer(vc);
+	// u32_t addr = (u16_t)0 << 16 | (u16_t)0;
+	// BUG("color: %02X %02X %02X\n", FRAMEBUFFER_IMAGE->data[addr].red, FRAMEBUFFER_IMAGE->data[addr].green, FRAMEBUFFER_IMAGE->data[addr].blue);
 }
 
 static void	main_loop(io_t *io, video_card_t *vc)
 {
 	while (!window_should_close(WINDOW)) {
-
 		if (HAS_RESOLUTION_CHANGE) {
 			window_set_size(WINDOW, WINDOW_WIDTH, WINDOW_HEIGHT);
 			FRAMEBUFFER_IMAGE = new_image(WINDOW_WIDTH, WINDOW_HEIGHT, vc_get_render_buffer(vc));
 			HAS_RESOLUTION_CHANGE = false;
 		}
-		update_frambuffer(vc);
+		update_framebuffer(vc);
 
 		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-		glClear(GL_DEPTH_BUFFER_BIT);
-		glClear(GL_COLOR_BUFFER_BIT);
+		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+		// glClear(GL_COLOR_BUFFER_BIT);
+
 		draw_image(FRAMEBUFFER_IMAGE);
+		// printf("image width: %i\n", FRAMEBUFFER_IMAGE->width);
+		// printf("image height: %i\n", FRAMEBUFFER_IMAGE->height);
 
 		window_swap_buffers(WINDOW);
 		window_poll_events();
@@ -110,7 +114,6 @@ int main(int argc, const char *argv[])
 	pthread_t	emulator_thread;
 
 	window_init(&WINDOW, "Emulator", WINDOW_WIDTH, WINDOW_HEIGHT);
-
 
 	cpu = new_cpu(MEMORY_SIZE - 8);
 	mem = new_memory();
@@ -188,7 +191,6 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 	// height will be significantly larger than specified on retina displays.
 	WINDOW_WIDTH = width;
 	WINDOW_HEIGHT = height;
-	printf("shouldnt happen\n");
 	//img_proj = M4_orthographic(-1.0 * WINDOW_HEIGHT / WINDOW_WIDTH, 1.0 * WINDOW_HEIGHT / WINDOW_WIDTH, -1.0, 1.0);
 	glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 }

@@ -11,8 +11,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-
-
 void window_init(window_t **window, const char *title, unsigned int width, unsigned int height)
 {
 	glfwInit();
@@ -27,7 +25,7 @@ void window_init(window_t **window, const char *title, unsigned int width, unsig
 	glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER, GL_TRUE);
 #endif
 	*window = glfwCreateWindow(width, height, title, NULL, NULL);
-	if (window == NULL) {
+	if (*window == NULL) {
 		fprintf(stderr, "Failed to create GLFW window\n");
 		glfwTerminate();
 		exit(-1);
@@ -47,6 +45,7 @@ void	window_set_size(window_t *window, int w, int h)
 	glfwSetWindowSize(window, w, h);
 	glViewport(0, 0, w, h);
 }
+
 /* set calback functions for window event handling */
 void window_set_callbacks(
 	window_t			*window,

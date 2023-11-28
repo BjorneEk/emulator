@@ -191,6 +191,3 @@ void	io_clear_interrupt(io_t *io)
 	io->irq = false;
 	pthread_cond_broadcast(&io->irq_cond);
 }
-
-
-

@@ -27,6 +27,7 @@ f32_t img_verts[] = {
 	-1.0f, -1.0f, 0.0f,	0.0f, 0.0f, // bottom left
 	-1.0f,  1.0f, 0.0f,	0.0f, 1.0f  // top left
 };
+
 u32_t img_mesh[] = {
 	0, 1, 3, // first triangle
 	1, 2, 3  // second triangle
@@ -49,7 +50,6 @@ shader_t image_shader()
 	shader_loaded = true;
 	return shader;
 }
-
 
 GL_element_object_t get_img_obj()
 {
@@ -88,8 +88,8 @@ image_t *new_image(u32_t width, u32_t height, rgb_t *data)
 
 	res = malloc(sizeof(image_t));
 
-	res->height = height;
 	res->width = width;
+	res->height = height;
 	//res->data = calloc(res->height * res->width, sizeof(rgb_t));
 	res->data = data;
 
@@ -103,7 +103,7 @@ image_t *new_image(u32_t width, u32_t height, rgb_t *data)
 	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, res->height, res->width, 0, GL_RGB, GL_UNSIGNED_BYTE, res->data);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, res->width, res->height, 0, GL_RGB, GL_UNSIGNED_BYTE, res->data);
 
 	glGenerateMipmap(GL_TEXTURE_2D);
 
@@ -121,7 +121,7 @@ void draw_image(image_t *img)
 	shader = image_shader();
 	shader_use(&shader);
 
-	//glGenTextures(1, &texture);
+	// glGenTextures(1, &texture);
 	glBindTexture(GL_TEXTURE_2D, img->GL_texture); // all upcoming GL_TEXTURE_2D operations now have effect on this texture object
 	// set the texture wrapping parameters
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -129,7 +129,7 @@ void draw_image(image_t *img)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, img->height, img->width, 0, GL_RGB, GL_UNSIGNED_BYTE, img->data);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, img->width, img->height, 0, GL_RGB, GL_UNSIGNED_BYTE, img->data);
 
 	glGenerateMipmap(GL_TEXTURE_2D);
 

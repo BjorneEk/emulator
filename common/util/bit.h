@@ -55,4 +55,5 @@ static inline u32_t swap_32(u32_t val)
 {
 	return swap_16(lsw_32(val)) << 16 | swap_16(msw_32(val));
 }
+
 #endif /* _BIT_H_ */

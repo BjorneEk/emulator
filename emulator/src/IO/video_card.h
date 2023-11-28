@@ -54,7 +54,7 @@ struct video_card {
 static const inline int vc_resolution_height(int res)
 {
 	switch (res) {
-		case VC_RESOLUTION_640X480: return 420;
+		case VC_RESOLUTION_640X480: return 480;
 		case VC_RESOLUTION_800X600: return 600;
 	}
 	return 0;
@@ -68,6 +68,7 @@ static const inline int vc_resolution_width(int res)
 	}
 	return 0;
 }
+
 vc_color_t	*new_vc_frame_buffer(int res);
 
 video_card_t	*new_video_card(
@@ -79,4 +80,5 @@ video_card_t	*new_video_card(
 void	vc_send(video_card_t *vc, u8_t signal);
 
 vc_color_t	*vc_get_render_buffer(video_card_t *vc);
+
 #endif /* _VIDEO_CARD_H_*/

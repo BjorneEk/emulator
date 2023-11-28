@@ -21,8 +21,6 @@ typedef void (*mouse_motion_callback_t)(	window_t *, double, double);
 typedef void (*scroll_callback_t)(		window_t *, double, double);
 typedef void (*framebuffer_size_callback_t)(	window_t *, int, int);
 
-
-
 void window_init(window_t **window, const char *title, unsigned int width, unsigned int height);
 
 #define window_destroy 		glfwTerminate
@@ -31,6 +29,7 @@ void window_init(window_t **window, const char *title, unsigned int width, unsig
 #define window_poll_events	glfwPollEvents
 
 void	window_set_size(window_t *window, int w, int h);
+
 /* set calback functions for window event handling */
 void window_set_callbacks(
 	window_t			*window,

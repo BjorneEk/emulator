@@ -46,8 +46,8 @@ video_card_t	*new_video_card(
 
 	res				= calloc(1, sizeof(video_card_t));
 	res->memory			= memory;
-	res->address_address		= address_address;
 	res->color_address		= color_address;
+	res->address_address		= address_address;
 	res->resolution			= VC_DEFAULT_RESOLUTION;
 	res->frame_buffers[0]		= new_vc_frame_buffer(res->resolution);
 	res->frame_buffers[1]		= new_vc_frame_buffer(res->resolution);
@@ -67,7 +67,7 @@ static void swap_buffers(video_card_t *vc) MONITOR(&vc->mutex,
 	vc->rendered_frame_buffer = tmp;
 })
 
-static void uppdate_resolution(video_card_t *vc, int new_res) MONITOR(&vc->mutex,
+static void update_resolution(video_card_t *vc, int new_res) MONITOR(&vc->mutex,
 {
 	free(vc->frame_buffers[0]);
 	free(vc->frame_buffers[1]);
@@ -104,11 +104,10 @@ static void read_color(video_card_t *vc) MONITOR(&vc->mutex,
 	memory_write_byte(vc->memory, vc->color_address + 2, c.blue);
 })
 
-
 void	vc_send(video_card_t *vc, u8_t signal)
 {
 	if (vc->waiting_for_resolution) {
-		uppdate_resolution(vc, signal);
+		update_resolution(vc, signal);
 		vc->resolution_change_callback(vc, signal);
 		vc->waiting_for_resolution = false;
 		return;
@@ -116,6 +115,9 @@ void	vc_send(video_card_t *vc, u8_t signal)
 	static int cnt = 0;
 	switch(signal) {
 		case VC_WRITE_RGB:
+			// u32_t addr = get_addr(vc);
+			// if (addr > vc_resolution_height(vc))
+
 			vc->frame_buffers[vc->active_frame_buffer][get_addr(vc)] = get_color(vc);
 			break;
 		case VC_READ_RGB:
