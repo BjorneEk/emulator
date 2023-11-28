@@ -20,6 +20,7 @@ void window_init(window_t **window, const char *title, unsigned int width, unsig
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	glfwWindowHint(GLFW_SAMPLES, 4);
+	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
 #ifdef __APPLE__
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
@@ -41,6 +42,11 @@ void window_init(window_t **window, const char *title, unsigned int width, unsig
 	}
 }
 
+void	window_set_size(window_t *window, int w, int h)
+{
+	glfwSetWindowSize(window, w, h);
+	glViewport(0, 0, w, h);
+}
 /* set calback functions for window event handling */
 void window_set_callbacks(
 	window_t			*window,

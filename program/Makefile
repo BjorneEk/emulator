@@ -4,9 +4,6 @@ TARGET=program.bin
 SOURCE_DIR:=src
 
 SOURCE_FILES:=$(wildcard $(SOURCE_DIR)/*.s $(SOURCE_DIR)/*/*.s $(SOURCE_DIR)/*.S $(SOURCE_DIR)/*/*.S)
-SOURCE_FILES+=$(wildcard $(INSTRUCTIONS_DIR)/*.s $(INSTRUCTIONS_DIR)/*/*.s)
-SOURCE_FILES+=$(wildcard $(INSTRUCTIONS_DIR)/*.S $(INSTRUCTIONS_DIR)/*/*.S)
-SOURCE_FILES+=$(wildcard $(COMMON_DIR)/*.s $(COMMON_DIR)/*/*.s $(COMMON_DIR)/*.S $(COMMON_DIR)/*/*.S)
 
 ENTRY_POINT:=start
 INTERRUPT_HANDLER:=interrupt

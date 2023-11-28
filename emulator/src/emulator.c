@@ -848,7 +848,7 @@ int emulator_execute(emulator_t *em)
 			break;
 
 		default:
-			printf("UNHANDLED OPCODE: %d\n", opcode);
+			exit_error("Unhandled opcode: %02X\n", opcode);
 	}
 
 	return 0;

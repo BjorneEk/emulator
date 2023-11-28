@@ -30,6 +30,7 @@ void window_init(window_t **window, const char *title, unsigned int width, unsig
 #define window_swap_buffers	glfwSwapBuffers
 #define window_poll_events	glfwPollEvents
 
+void	window_set_size(window_t *window, int w, int h);
 /* set calback functions for window event handling */
 void window_set_callbacks(
 	window_t			*window,

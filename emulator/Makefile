@@ -44,7 +44,6 @@ PP:=gcc
 PPFLAGS:=-E
 
 # Rules
-
 %.o: %.S Makefile
 	$(PP) $< -o tmp.tmp $(PPFLAGS)
 	sed /^#/d tmp.tmp > preprocessed.tmp.s

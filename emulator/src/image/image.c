@@ -82,17 +82,21 @@ GL_element_object_t get_img_obj()
 	return res;
 }
 
-image_t *new_image(u32_t width, u32_t height, u32_t scr_width, u32_t scr_hight)
+image_t *new_image(u32_t width, u32_t height, rgb_t *data)
 {
 	image_t *res;
+
 	res = malloc(sizeof(image_t));
 
 	res->height = height;
 	res->width = width;
-	res->data = calloc(res->height * res->width, sizeof(rgb_t));
+	//res->data = calloc(res->height * res->width, sizeof(rgb_t));
+	res->data = data;
 
 	glGenTextures(1, &res->GL_texture);
+
 	glBindTexture(GL_TEXTURE_2D, res->GL_texture); // all upcoming GL_TEXTURE_2D operations now have effect on this texture object
+
 	// set the texture wrapping parameters
 	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);

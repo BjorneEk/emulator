@@ -31,19 +31,25 @@ typedef struct __attribute((packed)) color {
 	u8_t	blue;
 } vc_color_t;
 
-typedef struct video_card {
-	vc_color_t			*frame_buffers[2];
-	int				active_frame_buffer;
-	int				rendered_frame_buffer;
+typedef struct video_card video_card_t;
 
-	pthread_mutex_t			mutex;
+typedef void (*vc_update_resolution_callback_func_t)(video_card_t *vc, int resolution);
 
-	bool				waiting_for_resolution;
-	memory_t			*memory;
-	u32_t				color_address;
-	u32_t				address_address;
-	int				resolution;
-} video_card_t;
+struct video_card {
+	vc_color_t		*frame_buffers[2];
+	int			active_frame_buffer;
+	int			rendered_frame_buffer;
+
+	pthread_mutex_t		mutex;
+
+	bool			waiting_for_resolution;
+	memory_t		*memory;
+	u32_t			color_address;
+	u32_t			address_address;
+	int			resolution;
+
+	vc_update_resolution_callback_func_t	resolution_change_callback;
+};
 
 static const inline int vc_resolution_height(int res)
 {
@@ -65,11 +71,12 @@ static const inline int vc_resolution_width(int res)
 vc_color_t	*new_vc_frame_buffer(int res);
 
 video_card_t	*new_video_card(
-		memory_t			*memory,
-		u32_t				color_address,
-		u32_t				address_address);
+		memory_t				*memory,
+		u32_t					color_address,
+		u32_t					address_address,
+		vc_update_resolution_callback_func_t	resolution_change_callback);
 
 void	vc_send(video_card_t *vc, u8_t signal);
 
-vc_color_t	*vc_get_render_buffer(video_card_t *vc, int *resolution);
+vc_color_t	*vc_get_render_buffer(video_card_t *vc);
 #endif /* _VIDEO_CARD_H_*/

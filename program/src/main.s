@@ -14,9 +14,9 @@ DDRB	= #0x00000007
 ENABLE_INTERRUPT = #0
 KEYPRESS_INTERRUPT = #3
 
-VC_COMM		= 0x00000009
-VC_DATA		= 0x00000010
-VC_ADDRESS	= 0x00000013
+VC_COMM		= #0x00000009
+VC_DATA		= #0x00000010
+VC_ADDRESS	= #0x00000013
 
 VC_WRITE_RGB		= #0
 VC_READ_RGB		= #1
@@ -144,22 +144,24 @@ draw_bw_ret:
 
 ; r0, first (r3, r4): addr start
 draw_line:
-	sub	sp, sp, #4
-	str	r0, [sp + #2]
+	sub	sp, sp, #6
+	str	r0, [sp + #4]
+	str	r1, [sp + #2]
 	str	r5, [sp]
 
-	ldr	r5, 0
+	ldr	r5, #0
 draw_line_loop:
-	sub	r5, SCREEN_WIDTH
+	sub	r1, r5, SCREEN_WIDTH
 	bz	draw_line_ret
 	call	[draw_bw]
-	incw	r5
+	inc	r5
 	bra	draw_line_loop
 draw_line_ret:
 
 	ldr	r5, [sp]
-	ldr	r0, [sp + #2]
-	add	sp, sp, #4
+	ldr	r1, [sp + #2]
+	ldr	r0, [sp + #4]
+	add	sp, sp, #6
 	ret
 
 draw_chess_pattern:
@@ -199,6 +201,60 @@ draw_chess_pattern_ret:
 	add	sp, sp, #10
 	ret
 
+
+fill_screen:
+	sub	sp, sp, #14
+	str	r6, [sp + #12]
+	str	r5, [sp + #10]
+	str	r4, [sp + #8]
+	str	r3, [sp + #6]
+	str	r2, [sp + #4]
+	str	r1, [sp + #2]
+	str	r0, [sp]
+
+	ldrb	r0, #0
+	ldrb	r1, #255
+	ldr	r2, VC_COMM
+	strb	r0, [r2 + #1] ; VC_DATA = VC_COMM + 1
+	strb	r1, [r2 + #2]
+	strb	r0, [r2 + #3]
+
+	ldr	r3, #0
+	ldr	r4, #0
+
+	ldr	r5, #0
+	ldr	r6, #0
+
+	ldr	r1,	VC_WRITE_RGB
+loop1:
+	sub	r0, r3, SCREEN_WIDTH
+	bz	next_loop
+	str	r5, [r2 + #4]
+	str	r6, [r2 + #6]
+	strb	r1, [r2]
+	incw	r5, r6
+	inc	r3
+	bra	loop1
+next_loop:
+	sub	r0, r4, SCREEN_HEIGHT
+	bz	fill_screen_ret
+	inc	r4
+	ldr	r3, #0
+	bra	loop1
+
+fill_screen_ret:
+	ldr	r1, VC_SWAP_BUFFERS
+	str	r1, [r2]
+
+	ldr	r6, [sp + #12]
+	ldr	r5, [sp + #10]
+	ldr	r4, [sp + #8]
+	ldr	r3, [sp + #6]
+	ldr	r2, [sp + #4]
+	ldr	r1, [sp + #2]
+	ldr	r0, [sp]
+	add	sp, sp, #14
+	ret
 ; program entry point
 start:
 	ldr	sp, INIT_STACK ; initialize stack-pointer
@@ -206,7 +262,7 @@ start:
 	ldr	r0, [resolution]
 	call	[vc_set_def_resolution]
 
-	call	[draw_chess_pattern]
+	call	[fill_screen]
 
 	srb	ps, #13				; enable cpu hw interrupts
 	ldr	r0, #0

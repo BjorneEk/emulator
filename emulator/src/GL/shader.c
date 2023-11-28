@@ -7,7 +7,7 @@
  *==========================================================*/
 
 #include "shader.h"
-#include "../util/error.h"
+#include "../../../common/util/error.h"
 #include <glad/glad.h>
 #include <stdio.h>
 #include <stdlib.h>
