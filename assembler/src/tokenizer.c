@@ -11,6 +11,7 @@
 #include "file.h"
 #include "../../common/util/error.h"
 #include <ctype.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -35,7 +36,7 @@ typedef struct tokenizer {
 } tokenizer_t;
 
 
-void		(*tokenizer_free)(tokenizer_t *) = (void (*)(tokenizer_t *))free;
+void	(*tokenizer_free)(tokenizer_t *) = (void (*)(tokenizer_t *))free;
 
 static char esc_chars[256] = {
 	['a'] = '\a', ['b'] = '\b',   ['f'] = '\f',
@@ -276,6 +277,8 @@ static void print_debug_lines(FILE *f, tpos_t tpos, int tklen)
 
 	if (lc == 3)
 		printf("\033[32m\033[1m%5i\033[0m \033[1m│\033[0m %s\n", tpos.line + ((tpos.line == 0) ? 3 : 2), l3);
+	else
+		printf("\033[1m");
 	fsetpos(tpos.file->fp, &org);
 	return;
 }
@@ -482,7 +485,10 @@ static bool tk_instr(tokenizer_t *t, char **ifnot, tk_t *tok)
 
 static bool tk_reg(tokenizer_t *t, tk_t *tok)
 {
-	int c, c1, rn;
+	int	c;
+	int	c1;
+	int	c2;
+	int	rn;
 	tpos_t pos;
 
 	pos = tpos(t);
@@ -490,43 +496,74 @@ static bool tk_reg(tokenizer_t *t, tk_t *tok)
 	++t->column;
 	switch(c) {
 		case 'p':
+			++t->column;
 			switch(c1 = next(t)) {
 				case 's':
 					rn = REG_PROCESSOR_STATUS;
-					++t->column;
-					goto found;
+					if (!is_ident(peak(t)))
+						goto found;
+					goto not_found2;
 				case 'c':
-					rn = REG_PROGRAM_COUNTER_L;
 					++t->column;
-					goto found;
+					switch(c2 = next(t)) {
+						case 'l':
+							rn = REG_PROGRAM_COUNTER_L;
+							if (!is_ident(peak(t)))
+								goto found;
+							goto not_found3;
+						case 'h':
+							rn = REG_PROGRAM_COUNTER_H;
+							if (!is_ident(peak(t)))
+								goto found;
+							goto not_found3;
+						default:
+							goto not_found3;
+					}
 				default:
-					pb(t, c1);
-					goto not_found;
+					goto not_found2;
 			}
 		case 's':
+			++t->column;
 			if((c1 = next(t)) == 'p') {
 				rn = REG_STACK_POINTER;
-				++t->column;
-				goto found;
+				if (!is_ident(peak(t)))
+					goto found;
 			}
-			pb(t, c1);
-			goto not_found;
+			goto not_found2;
 		case 'r':
-		case 'b':
-			if(isdigit(c1 = next(t)) && (rn = c1 - '0') >= 0 && rn <= 11) {
+			++t->column;
+			if(isdigit(c1 = next(t))) {
+				rn = c1 - '0';
 				++t->column;
+				if (isdigit(c2 = next(t))) {
+					rn *= 10;
+					rn += c2 - '0';
+					if (is_ident(peak(t)) || rn > 15)
+						goto not_found3;
+				} else if (is_ident(c2)) {
+					goto not_found3;
+				} else {
+					pb(t, c2);
+				}
+				if (rn > 15)
+					goto not_found2;
 				goto found;
 			}
-			pb(t, c1);
-			goto not_found;
+			goto not_found2;
 		default:
-			goto not_found;
+			goto not_found1;
 	}
 found:
 	*tok = treg(t, pos, rn);
 	if(!is_ident(peak(t)))
 		return true;
-not_found:
+not_found3:
+	pb(t, c2);
+	--t->column;
+not_found2:
+	pb(t, c1);
+	--t->column;
+not_found1:
 	pb(t, c);
 	--t->column;
 	return false;
