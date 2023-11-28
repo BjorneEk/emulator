@@ -31,9 +31,9 @@ absolute:
 [reg, reg]          - abs-ptr,      -
 
 absolute-idx:
-[#val] + reg         - abs-idx,     32-bit val
-[reg, reg] + reg     - abs-ptr-idx, -
-[reg, reg] + #val    - abs-ptr-off, 16-bit val
+[#val] , reg         - abs-idx,     32-bit val
+[reg, reg] , reg     - abs-ptr-idx, -
+[reg, reg] , #val    - abs-ptr-off, 16-bit val
 
 zero-page:
 [reg]               - ze-ptr,       -

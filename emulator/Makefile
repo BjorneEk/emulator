@@ -28,6 +28,13 @@ OPT:=-g
 CFLAGS:= -I$(SOURCE_DIR) -I$(COMMON_DIR) -I$(INSTRUCTIONS_DIR) $(OPT)
 LIBS:=
 
+UNAME := $(shell uname -s)
+ifeq ($(UNAME),Darwin)
+	LIBS += -lglfw3 -framework Cocoa -framework OpenGL -framework IOKit -F /Library/Frameworks
+else ifeq ($(UNAME),Linux)
+	LIBS += -lglfw
+endif
+
 # Assembler
 ASM:=gcc
 ASMFLAGS:=#-arch $(ARCH) # make automatic
