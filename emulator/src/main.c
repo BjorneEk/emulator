@@ -33,6 +33,8 @@ static bool HAS_RESOLUTION_CHANGE = false;
 
 static image_t *FRAMEBUFFER_IMAGE;
 
+static io_t *IO;
+
 /*
 static void *run_emulator(void *arg)
 {
@@ -80,7 +82,7 @@ static void	update_framebuffer(video_card_t *vc)
 	// BUG("color: %02X %02X %02X\n", FRAMEBUFFER_IMAGE->data[addr].red, FRAMEBUFFER_IMAGE->data[addr].green, FRAMEBUFFER_IMAGE->data[addr].blue);
 }
 
-static void	main_loop(io_t *io, video_card_t *vc)
+static void	main_loop(video_card_t *vc)
 {
 	while (!window_should_close(WINDOW)) {
 		if (HAS_RESOLUTION_CHANGE) {
@@ -108,7 +110,7 @@ int main(int argc, const char *argv[])
 {
 	cpu_t		*cpu;
 	memory_t	*mem;
-	io_t		*io;
+	// io_t		*io;
 	video_card_t	*vc;
 	emulator_t	*em;
 	pthread_t	emulator_thread;
@@ -117,7 +119,9 @@ int main(int argc, const char *argv[])
 
 	cpu = new_cpu(MEMORY_SIZE - 8);
 	mem = new_memory();
-	io = new_io_emulator();
+
+	IO = new_io_emulator();
+
 	vc = new_video_card(
 		mem,
 		ADDRESS_GRAPHICS_CARD_DATA,
@@ -125,7 +129,7 @@ int main(int argc, const char *argv[])
 		vc_resolution_change_callback);
 	FRAMEBUFFER_IMAGE = new_image(WINDOW_WIDTH, WINDOW_HEIGHT, vc_get_render_buffer(vc));
 
-	em = new_emulator(cpu, mem, io, vc);
+	em = new_emulator(cpu, mem, IO, vc);
 
 	memory_from_file(mem, argv[1]);
 
@@ -145,8 +149,7 @@ int main(int argc, const char *argv[])
 	} while(res != 1);
 	*/
 	emulator_thread = start_emulator(em);
-	main_loop(io, vc);
-
+	main_loop(vc);
 
 	pthread_join(emulator_thread, NULL);
 }
@@ -175,8 +178,30 @@ void	vc_resolution_change_callback(video_card_t *vc, int resolution)
 	CURRENT_RESOLUTION = resolution;
 }
 
+#define IO_KEYBOARD_INTERRUPT (IO_SIGNAL_CUSTOM + 1)
+#define KEY_PRESSED (1)
+#define KEY_RELEASED (0)
+
 void keypress_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
-{/* unused */}
+{
+	u8_t portah;
+	u8_t portal;
+
+	portah = IO_KEYBOARD_INTERRUPT;
+	switch(action) {
+		case GLFW_PRESS:
+		case GLFW_REPEAT:
+			portal = KEY_PRESSED;
+			break;
+		case GLFW_RELEASE:
+			portal = KEY_RELEASED;
+			break;
+	}
+	io_write_porta(IO, (u16_t)(portah << 8) | (u16_t)(portal), IO_DEVICE_ACCESS);
+	io_write_portb(IO, key, IO_DEVICE_ACCESS);
+	io_interrupt_and_wait_until_porta_read(IO);
+}
+
 void text_input_callback(GLFWwindow *window, unsigned int codepoint)
 {/* unused */}
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)

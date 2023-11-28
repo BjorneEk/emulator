@@ -12,7 +12,7 @@ PORTB	= #0x00000005
 DDRB	= #0x00000007
 
 ENABLE_INTERRUPT = #0
-KEYPRESS_INTERRUPT = #3
+KEYPRESS_INTERRUPT = #4
 
 VC_COMM		= #0x00000009
 VC_DATA		= #0x00000010
@@ -228,14 +228,14 @@ fill_screen:
 	ldr	r1,	VC_WRITE_RGB
 loop1:
 	sub	r0, r3, SCREEN_WIDTH
-	bz	next_loop
+	bz	loop2
 	str	r5, [r2 + #4]
 	str	r6, [r2 + #6]
 	strb	r1, [r2]
 	incw	r5, r6
 	inc	r3
 	bra	loop1
-next_loop:
+loop2:
 	sub	r0, r4, SCREEN_HEIGHT
 	bz	fill_screen_ret
 	inc	r4
@@ -302,7 +302,7 @@ interrupt:
 	str	r0, [sp + #2]
 	str	r1, [sp]
 
-	ldr	r0, [PORTA]
+	ldrb	r0, [PORTA]
 	sub	r0, r0, KEYPRESS_INTERRUPT
 	bz	keypress
 	bra	interrupt_return
