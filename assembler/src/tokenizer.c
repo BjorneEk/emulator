@@ -441,7 +441,7 @@ static int tk_instr_rec(tokenizer_t *t, char **rs, char *strb, struct insmap_kvp
 	len_ = 0;
 	for (i = 0; i < len; i++) {
 		if (d <= map[i].slen && map[i].s[d] == toupper(c) && map[i].slen - 2 == d) {
-			if (is_ws(peak(t)) || peak(t) == '\n') {
+			if (is_ws(peak(t)) || peak(t) == '\n' || peak(t) == EOF) {
 				//t->column += d + 1;
 				return map[i].ins;
 			}
