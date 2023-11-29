@@ -16,7 +16,6 @@ ASMFLAGS:=-e $(ENTRY_POINT) -i $(INTERRUPT_HANDLER) -sz $(MEMORY_MAX_ADDR)
 
 
 # Rules
-
 $(TARGET): $(SOURCE_FILES)
 	./$(ASM) -o $@ $^ $(ASMFLAGS)
 

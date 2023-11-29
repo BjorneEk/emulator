@@ -626,6 +626,7 @@ int emulator_execute(emulator_t *em)
 	if (cpu_get_flag(em->cpu, FLAG_INTERRUPT) && io_irq(em->io)) {
 		cpu_clear_flag(em->cpu, FLAG_INTERRUPT);
 		interrupt(em);
+		//BUG("INTERRUPT\n");
 	} else if (em->cpu->nmi) {
 		em->cpu->nmi = false;
 		interrupt(em);
