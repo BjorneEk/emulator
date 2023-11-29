@@ -48,19 +48,12 @@ static void port_write(port_t *p, u16_t val, io_access_type_t caller)
 {
 	int		i;
 	u8_t		bit;
-	ddr_bit_t	req_state;
-
-	req_state = caller == IO_INTERNAL_ACCESS ? IO_OUTPUT : IO_INPUT;
-
 
 	for (i = 0; i < 16; i++) {
-		if (BIT_IS(p->ddr, i, req_state)) {
-			bit = 1 << i;
-			if (val & bit)
-				p->port |= bit;
-			else
-				p->port &= ~bit;
-		}
+		if (caller == IO_INTERNAL_ACCESS)
+			p->port = (p->ddr & val) | (~p->ddr & p->port);
+		else
+			p->port = (~p->ddr & val) | (p->ddr & p->port);
 	}
 }
 

@@ -178,28 +178,31 @@ void	vc_resolution_change_callback(video_card_t *vc, int resolution)
 	CURRENT_RESOLUTION = resolution;
 }
 
-#define IO_KEYBOARD_INTERRUPT (IO_SIGNAL_CUSTOM + 1)
+#define IO_KEYBOARD_INTERRUPT (4)
 #define KEY_PRESSED (1)
 #define KEY_RELEASED (0)
 
+static void	request_keyboard_interrupt(u16_t interrupt_description, u16_t key)
+{
+	io_write_porta(IO, interrupt_description, IO_DEVICE_ACCESS);
+	io_write_portb(IO, key, IO_DEVICE_ACCESS);
+	io_interrupt_and_wait_until_porta_read(IO);
+}
 void keypress_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-	u8_t portah;
-	u8_t portal;
+	u16_t interrupt_description;
 
-	portah = IO_KEYBOARD_INTERRUPT;
+	interrupt_description = IO_KEYBOARD_INTERRUPT << 8;
 	switch(action) {
 		case GLFW_PRESS:
 		case GLFW_REPEAT:
-			portal = KEY_PRESSED;
+			interrupt_description |= KEY_PRESSED & 0xFF;
 			break;
 		case GLFW_RELEASE:
-			portal = KEY_RELEASED;
+			interrupt_description |= KEY_RELEASED & 0xFF;
 			break;
 	}
-	io_write_porta(IO, (u16_t)(portah << 8) | (u16_t)(portal), IO_DEVICE_ACCESS);
-	io_write_portb(IO, key, IO_DEVICE_ACCESS);
-	io_interrupt_and_wait_until_porta_read(IO);
+	request_keyboard_interrupt(interrupt_description, key);
 }
 
 void text_input_callback(GLFWwindow *window, unsigned int codepoint)

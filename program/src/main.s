@@ -12,7 +12,10 @@ PORTB	= #0x00000005
 DDRB	= #0x00000007
 
 ENABLE_INTERRUPT = #0
-KEYPRESS_INTERRUPT = #4
+KEYBOARD_INTERRUPT = #4
+
+KEY_PRESSED = #1
+KEY_RELEASED = #0
 
 VC_COMM		= #0x00000009
 VC_DATA		= #0x00000010
@@ -35,11 +38,12 @@ debug_char:
 
 	ldr	r1, #10 ;'\n'
 	;str	r1, [OUT]
-	str	r0, [OUT]
-	str	r1, [OUT]
+	strb	r0, [OUT]
+	strb	r1, [OUT]
 	ldr	r1, [sp]
 	add	sp, sp, #2
 	ret
+
 
 enable_interrupt_controller:
 	sub	sp, sp, #2
@@ -62,10 +66,13 @@ enable_interrupt_controller:
 ; r1 = scancode
 debug_keypress_handler:
 
+	sub	r0, r0, KEY_PRESSED
+	bnz	khret
 	ldr	r0, r1
 	sub	r1, r1, 'q'
 	bz	exit_program
 	call	[debug_char]
+khret:
 	ret
 
 exit_program:
@@ -281,7 +288,7 @@ loop:
 	bra	loop
 
 ; r0 = interrupt type
-; r1 = scancode
+; r1 = key scancode
 keyboard_event:
 	sub	sp, sp, #4
 	str	r2, [sp + #2]
@@ -298,21 +305,24 @@ keyboard_event:
 
 ; program hardware interrupt handler
 interrupt:
-	sub	sp, sp, #4
-	str	r0, [sp + #2]
-	str	r1, [sp]
+	sub	sp, sp, #6
+	str	r0, [sp + #4]
+	str	r1, [sp + #2]
+	str	r2, [sp]
 
-	ldrb	r0, [PORTA]
-	sub	r0, r0, KEYPRESS_INTERRUPT
+	ldrb	r2, [PORTA]		; interrupt type
+	ldrb	r0, [PORTA + #1]	; interrupt info
+	sub	r2, r2, KEYBOARD_INTERRUPT
 	bz	keypress
 	bra	interrupt_return
 keypress:
-	ldr	r1, [PORTB]
+	ldr	r1, [PORTB]		; key info
 	call	[keyboard_event]
 interrupt_return:
-	ldr	r1, [sp]
-	ldr	r0, [sp + #2]
-	add	sp, sp, #4
+	ldr	r2, [sp]
+	ldr	r1, [sp + #2]
+	ldr	r0, [sp + #4]
+	add	sp, sp, #6
 	rti
 
 
