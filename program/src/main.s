@@ -13,6 +13,7 @@ DDRB	= #0x00000007
 
 ENABLE_INTERRUPT = #0
 KEYBOARD_INTERRUPT = #4
+CLEAR_INTERRUPT	= #2
 
 KEY_PRESSED = #1
 KEY_RELEASED = #0
@@ -65,14 +66,48 @@ enable_interrupt_controller:
 ; r0 = interrupt type
 ; r1 = scancode
 debug_keypress_handler:
-
+	sub	sp, sp, #6
+	str	r0, [sp + #4]
+	str	r2, [sp + #2]
+	str	r1, [sp]
 	sub	r0, r0, KEY_PRESSED
 	bnz	khret
 	ldr	r0, r1
-	sub	r1, r1, 'q'
+	sub	r1, r1, 'Q'
 	bz	exit_program
 	call	[debug_char]
+	sub	r0, r0, 'R'
+	bz	red
+	ldr	r0, [sp]
+	sub	r0, r0, 'G'
+	bz	green
+	ldr	r0, [sp]
+	sub	r0, r0, 'B'
+	bz	blue
+	bra	khret
+red:
+	ldr	r0, #255
+	ldr	r1, #0
+	ldr	r2, #0
+	call	[fill_screen]
+	bra	khret
+green:
+	ldr	r0, #0
+	ldr	r1, #255
+	ldr	r2, #0
+	call	[fill_screen]
+	bra	khret
+blue:
+	ldr	r0, #0
+	ldr	r1, #0
+	ldr	r2, #255
+	call	[fill_screen]
+	bra	khret
 khret:
+	ldr	r1, [sp]
+	ldr	r2, [sp + #2]
+	ldr	r0, [sp + #4]
+	add	sp, sp, #6
 	ret
 
 exit_program:
@@ -219,12 +254,13 @@ fill_screen:
 	str	r1, [sp + #2]
 	str	r0, [sp]
 
-	ldrb	r0, #0
-	ldrb	r1, #255
+	;ldrb	r0, #0
+	;ldrb	r1, #255
+	ldr	r3, r2
 	ldr	r2, VC_COMM
 	strb	r0, [r2 + #1] ; VC_DATA = VC_COMM + 1
 	strb	r1, [r2 + #2]
-	strb	r0, [r2 + #3]
+	strb	r3, [r2 + #3]
 
 	ldr	r3, #0
 	ldr	r4, #0
@@ -269,6 +305,9 @@ start:
 	ldr	r0, [resolution]
 	call	[vc_set_def_resolution]
 
+	ldr	r0, #0
+	ldr	r1, #0
+	ldr	r2, #255
 	call	[fill_screen]
 
 	srb	ps, #13				; enable cpu hw interrupts
@@ -319,6 +358,8 @@ keypress:
 	ldr	r1, [PORTB]		; key info
 	call	[keyboard_event]
 interrupt_return:
+	ldr	r0, CLEAR_INTERRUPT << #8
+	str	r0, [PORTA]
 	ldr	r2, [sp]
 	ldr	r1, [sp + #2]
 	ldr	r0, [sp + #4]

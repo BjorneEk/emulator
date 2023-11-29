@@ -14,7 +14,7 @@
 typedef int shader_t;
 
 
-void shader_load(shader_t * self, const char *vert_path, const char *frag_path);
+void shader_new(shader_t * self, const char *vert_src, const char *frag_src);
 
 void shader_use(shader_t * self);
 

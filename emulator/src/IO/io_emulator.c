@@ -25,10 +25,6 @@
 	}
 
 static void	port_write(port_t *p, u16_t val, io_access_type_t caller);
-static u16_t	read_porta(io_t *io, io_access_type_t caller);
-static u16_t	read_portb(io_t *io, io_access_type_t caller);
-static u16_t	read_porta_and_clear_interrupt(io_t *io, io_access_type_t caller);
-static u16_t	read_portb_and_clear_interrupt(io_t *io, io_access_type_t caller);
 static void	wait_for_interrupt_clear(io_t *io);
 
 io_t	*new_io_emulator()
@@ -38,8 +34,6 @@ io_t	*new_io_emulator()
 	res = calloc(1, sizeof(io_t));
 	pthread_mutex_init(&res->mutex, NULL);
 	pthread_cond_init(&res->irq_cond, NULL);
-	res->read_porta = read_porta;
-	res->read_portb = read_portb;
 	res->interrupt_enabled = false;
 	return res;
 }
@@ -56,41 +50,6 @@ static void port_write(port_t *p, u16_t val, io_access_type_t caller)
 			p->port = (~p->ddr & val) | (p->ddr & p->port);
 	}
 }
-
-static u16_t	read_porta(io_t *io, io_access_type_t caller)
-{
-	return io->porta.port;
-}
-
-static u16_t	read_portb(io_t *io, io_access_type_t caller)
-{
-	return io->portb.port;
-}
-
-static u16_t	read_porta_and_clear_interrupt(io_t *io, io_access_type_t caller)
-{
-	u16_t res;
-
-	res = read_porta(io, caller);
-	if (caller == IO_INTERNAL_ACCESS) {
-		io_clear_interrupt(io);
-		io->read_porta = read_porta;
-	}
-	return res;
-}
-
-static u16_t	read_portb_and_clear_interrupt(io_t *io, io_access_type_t caller)
-{
-	u16_t res;
-
-	res = read_portb(io, caller);
-	if (caller == IO_INTERNAL_ACCESS) {
-		io_clear_interrupt(io);
-		io->read_portb = read_portb;
-	}
-	return res;
-}
-
 void	io_write_porta(io_t *io, u16_t data, io_access_type_t caller) MONITOR(&io->mutex,
 {
 
@@ -130,7 +89,7 @@ u16_t	io_read_porta(io_t *io, io_access_type_t caller)
 {
 	u16_t res;
 
-	DO_LOCKED(&io->mutex, res = io->read_porta(io, caller));
+	DO_LOCKED(&io->mutex, res = io->porta.port);
 	return res;
 }
 
@@ -138,7 +97,7 @@ u16_t	io_read_portb(io_t *io, io_access_type_t caller)
 {
 	u16_t res;
 
-	DO_LOCKED(&io->mutex, res = io->read_portb(io, caller));
+	DO_LOCKED(&io->mutex, res = io->portb.port);
 	return res;
 }
 
@@ -148,35 +107,39 @@ static void wait_for_interrupt_clear(io_t *io)
 		pthread_cond_wait(&io->irq_cond, &io->mutex);
 }
 
-static void	_interrupt_and_wait(io_t *io, read_port_func_t *fn, read_port_func_t fn_)
+void	io_interrupt_and_wait(io_t *io)
 {
 	if (!io->interrupt_enabled)
 		return;
 
-	pthread_mutex_lock(&io->mutex);
-
-	wait_for_interrupt_clear(io);	/* make shure an interrupt is not ongoing */
-	if (fn != NULL)
-		*fn = fn_;
-	io->irq = true;			/* create interrupt not ongoing */
-	wait_for_interrupt_clear(io);
-	pthread_mutex_unlock(&io->mutex);
+	DO_LOCKED(&io->mutex, {
+		io->irq = true;
+		wait_for_interrupt_clear(io);
+	})
 }
 
-void	io_interrupt_and_wait(io_t *io)
+void	io_interrupt(io_t *io)
 {
-	_interrupt_and_wait(io, NULL, NULL);
+	if (!io->interrupt_enabled)
+		return;
+	DO_LOCKED(&io->mutex,
+		io->irq = true;
+	);
 }
 
-void	io_interrupt_and_wait_until_porta_read(io_t *io)
+void	io_wait_and_interrupt(io_t *io)
 {
+	if (!io->interrupt_enabled)
+		return;
 
-	_interrupt_and_wait(io, &io->read_porta, read_porta_and_clear_interrupt);
-}
-
-void	io_interrupt_and_wait_until_portb_read(io_t *io)
-{
-	_interrupt_and_wait(io, &io->read_portb, read_portb_and_clear_interrupt);
+	DO_LOCKED(&io->mutex, {
+		if (!io->irq) {
+			io->irq = true;
+		} else {
+			wait_for_interrupt_clear(io);
+			io->irq = true;
+		}
+	});
 }
 
 void	io_clear_interrupt(io_t *io)

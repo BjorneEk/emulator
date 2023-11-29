@@ -33,8 +33,27 @@ u32_t img_mesh[] = {
 	1, 2, 3  // second triangle
 };
 
-static const char *IMAGE_VERT_PATH = "src/shaders/img_vert.glsl";
-static const char *IMAGE_FRAG_PATH = "src/shaders/img_frag.glsl";
+static const char *IMAGE_VERT_SHADER_SRC = "#version 330 core\n"
+"layout (location = 0) in vec3 in_pos;\n"
+"layout (location = 1) in vec2 in_texture_coord;\n"
+"out vec3 color;\n"
+"out vec2 texture_coord;\n"
+"uniform mat4 projection;\n"
+"void main()\n"
+"{\n"
+"	gl_Position = vec4(in_pos, 1.0);\n"
+"	texture_coord = vec2(in_texture_coord.x, in_texture_coord.y);\n"
+"}\n";
+
+static const char *IMAGE_FRAG_SHADER_SRC = "#version 330 core\n"
+"out vec4 out_color;\n"
+"in vec3 color;\n"
+"in vec2 texture_coord;\n"
+"uniform sampler2D texture1;\n"
+"void main()\n"
+"{\n"
+"	out_color = texture(texture1, texture_coord);\n"
+"}\n";
 
 extern f32_t GLOBL_DELTA_TIME;
 
@@ -46,7 +65,7 @@ shader_t image_shader()
 	if (shader_loaded)
 		return shader;
 	else
-		shader_load(&shader, IMAGE_VERT_PATH, IMAGE_FRAG_PATH);
+		shader_new(&shader, IMAGE_VERT_SHADER_SRC, IMAGE_FRAG_SHADER_SRC);
 	shader_loaded = true;
 	return shader;
 }

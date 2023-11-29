@@ -24,39 +24,6 @@ static const char *shader_type_string(u32_t t)
 	}
 }
 
-size_t filesize(const char *path)
-{
-	struct stat	sb;
-
-	stat(path, &sb);
-	return sb.st_size;
-}
-
-char *read_file(const char* path)
-{
-	FILE	*fp;
-	size_t	len;
-	char	*res;
-
-	fp = fopen(path, "r");
-
-	if(!fp)
-		exit_error("could not open file %s for reading", path);
-
-	len = filesize(path);
-
-	res = malloc((len+1) * sizeof(char));
-
-	fread(res, sizeof(char), len, fp);
-
-	if (ferror(fp))
-		exit_error("reading file: %s", path);
-
-	res[len] = '\0';
-	fclose(fp);
-	return res;
-}
-
 u32_t create_shader(const char *shader_src, u32_t shader_type)
 {
 	i32_t	success;
@@ -76,21 +43,7 @@ u32_t create_shader(const char *shader_src, u32_t shader_type)
 		shader_type_string(shader_type), info_log);
 }
 
-u32_t read_shader(const char *shader_path, u32_t type)
-{
-	u32_t	result;
-	char	*shader_src;
-
-	shader_src = read_file(shader_path);
-
-	result = create_shader(shader_src, type);
-
-	free(shader_src);
-	return result;
-}
-
-
-void shader_load(shader_t * self, const char *vert_path, const char *frag_path)
+void shader_new(shader_t * self, const char *vert_src, const char *frag_src)
 {
 	i32_t	success;
 	char	info_log[512];
@@ -98,8 +51,8 @@ void shader_load(shader_t * self, const char *vert_path, const char *frag_path)
 	u32_t	frag_shader;
 
 
-	vert_shader = read_shader(vert_path, GL_VERTEX_SHADER);
-	frag_shader = read_shader(frag_path, GL_FRAGMENT_SHADER);
+	vert_shader = create_shader(vert_src, GL_VERTEX_SHADER);
+	frag_shader = create_shader(frag_src, GL_FRAGMENT_SHADER);
 
 	*self = glCreateProgram();
 	glAttachShader(*self, vert_shader);
@@ -120,6 +73,7 @@ void shader_use(shader_t * self)
 {
 	glUseProgram(*self);
 }
+
 u32_t shader_get_uniform(shader_t * self, const char * name)
 {
 	return glGetUniformLocation(*self, name);

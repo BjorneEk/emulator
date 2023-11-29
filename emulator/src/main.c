@@ -35,6 +35,7 @@ static image_t *FRAMEBUFFER_IMAGE;
 
 static io_t *IO;
 
+
 /*
 static void *run_emulator(void *arg)
 {
@@ -48,6 +49,8 @@ static void *run_emulator(void *arg)
 */
 
 void	vc_resolution_change_callback(video_card_t *vc, int resolution);
+
+static void request_keyboard_interrupt(u16_t interrupt_description, u16_t key);
 
 void text_input_callback(	window_t *window, unsigned int	codepoint);
 void keypress_callback(		window_t* window, int		key,		int	scancode,	int action,	int mods);
@@ -141,13 +144,7 @@ int main(int argc, const char *argv[])
 		mouse_motion_callback,
 		scroll_callback,
 		framebuffer_size_callback);
-	/*
-	do {
-		getchar();
-		res = emulator_execute(em);
-		emulator_debug(em);
-	} while(res != 1);
-	*/
+
 	emulator_thread = start_emulator(em);
 	main_loop(vc);
 
@@ -186,7 +183,7 @@ static void	request_keyboard_interrupt(u16_t interrupt_description, u16_t key)
 {
 	io_write_porta(IO, interrupt_description, IO_DEVICE_ACCESS);
 	io_write_portb(IO, key, IO_DEVICE_ACCESS);
-	io_interrupt_and_wait_until_porta_read(IO);
+	io_wait_and_interrupt(IO);
 }
 void keypress_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {

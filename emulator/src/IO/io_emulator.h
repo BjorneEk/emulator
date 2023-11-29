@@ -46,9 +46,6 @@ typedef struct io_emulator {
 	pthread_cond_t	irq_cond;
 	bool		irq;
 	bool		interrupt_enabled;
-
-	read_port_func_t	read_porta;
-	read_port_func_t	read_portb;
 } io_t;
 
 io_t	*new_io_emulator();
@@ -72,8 +69,12 @@ static inline u16_t	io_read_ddrb(io_t *io)
 }
 
 void	io_interrupt_and_wait(io_t *io);
-void	io_interrupt_and_wait_until_porta_read(io_t *io);
-void	io_interrupt_and_wait_until_portb_read(io_t *io);
+void	io_interrupt(io_t *io);
+void	io_wait_and_interrupt(io_t *io);
+
+
+//void	io_interrupt_and_wait_until_porta_read(io_t *io);
+//void	io_interrupt_and_wait_until_portb_read(io_t *io);
 void	io_clear_interrupt(io_t *io);
 
 static inline bool io_irq(io_t *io)
