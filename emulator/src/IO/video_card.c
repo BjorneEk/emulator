@@ -49,10 +49,8 @@ video_card_t	*new_video_card(
 	res->color_address		= color_address;
 	res->address_address		= address_address;
 	res->resolution			= VC_DEFAULT_RESOLUTION;
-	res->frame_buffers[0]		= new_vc_frame_buffer(res->resolution);
-	res->frame_buffers[1]		= new_vc_frame_buffer(res->resolution);
-	res->active_frame_buffer	= 0;
-	res->rendered_frame_buffer	= 1;
+	res->active_frame_buffer	= new_vc_frame_buffer(res->resolution);
+	res->rendered_frame_buffer	= new_vc_frame_buffer(res->resolution);
 	res->waiting_for_resolution	= false;
 	res->resolution_change_callback	= resolution_change_callback;
 	pthread_mutex_init(&res->mutex, NULL);
@@ -61,21 +59,19 @@ video_card_t	*new_video_card(
 
 static void swap_buffers(video_card_t *vc) MONITOR(&vc->mutex,
 {
-	int tmp;
-	tmp = vc->active_frame_buffer;
-	vc->active_frame_buffer = vc->rendered_frame_buffer;
-	vc->rendered_frame_buffer = tmp;
+	memmove(
+		vc->rendered_frame_buffer,
+		vc->active_frame_buffer,
+		vc_resolution_height(vc->resolution)*vc_resolution_width(vc->resolution)*sizeof(vc_color_t));
 })
 
 static void update_resolution(video_card_t *vc, int new_res) MONITOR(&vc->mutex,
 {
-	free(vc->frame_buffers[0]);
-	free(vc->frame_buffers[1]);
+	free(vc->active_frame_buffer);
+	free(vc->rendered_frame_buffer);
 
-	vc->active_frame_buffer		= 0;
-	vc->rendered_frame_buffer	= 1;
-	vc->frame_buffers[0]		= new_vc_frame_buffer(new_res);
-	vc->frame_buffers[1]		= new_vc_frame_buffer(new_res);
+	vc->active_frame_buffer		= new_vc_frame_buffer(new_res);
+	vc->rendered_frame_buffer	= new_vc_frame_buffer(new_res);
 	vc->resolution			= new_res;
 })
 
@@ -98,7 +94,7 @@ static void read_color(video_card_t *vc) MONITOR(&vc->mutex,
 {
 	vc_color_t c;
 
-	c = vc->frame_buffers[vc->rendered_frame_buffer][get_addr(vc)];
+	c = vc->rendered_frame_buffer[get_addr(vc)];
 	memory_write_byte(vc->memory, vc->color_address, c.red);
 	memory_write_byte(vc->memory, vc->color_address + 1, c.green);
 	memory_write_byte(vc->memory, vc->color_address + 2, c.blue);
@@ -118,7 +114,7 @@ void	vc_send(video_card_t *vc, u8_t signal)
 			// u32_t addr = get_addr(vc);
 			// if (addr > vc_resolution_height(vc))
 
-			vc->frame_buffers[vc->active_frame_buffer][get_addr(vc)] = get_color(vc);
+			vc->active_frame_buffer[get_addr(vc)] = get_color(vc);
 			break;
 		case VC_READ_RGB:
 			read_color(vc);
@@ -138,7 +134,7 @@ vc_color_t	*vc_get_render_buffer(video_card_t *vc)
 	vc_color_t *res;
 
 	DO_LOCKED(&vc->mutex, {
-		res = copy_vc_framebuffer(vc->frame_buffers[vc->rendered_frame_buffer], vc->resolution);
+		res = copy_vc_framebuffer(vc->rendered_frame_buffer, vc->resolution);
 	});
 	return res;
 }

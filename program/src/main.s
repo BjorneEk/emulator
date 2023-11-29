@@ -32,6 +32,7 @@ VC_RESOLUTION_640X480	= #5
 SCREEN_WIDTH = #640
 SCREEN_HEIGHT = #480
 
+
 ; r0: char
 debug_char:
 	sub	sp, sp, #2
@@ -70,20 +71,27 @@ debug_keypress_handler:
 	str	r0, [sp + #4]
 	str	r2, [sp + #2]
 	str	r1, [sp]
+
 	sub	r0, r0, KEY_PRESSED
 	bnz	khret
+
 	ldr	r0, r1
 	sub	r1, r1, 'Q'
 	bz	exit_program
+
 	call	[debug_char]
+
 	sub	r0, r0, 'R'
 	bz	red
+
 	ldr	r0, [sp]
 	sub	r0, r0, 'G'
 	bz	green
+
 	ldr	r0, [sp]
 	sub	r0, r0, 'B'
 	bz	blue
+
 	bra	khret
 red:
 	ldr	r0, #255
@@ -113,27 +121,6 @@ khret:
 exit_program:
 	brk
 
-
-; r0: red, r1: green, r2: blue, (r3, r4): addr
-vc_set_pixel:
-	sub	sp, sp, #4
-	str	r5, [sp + #2]
-	str	r6, [sp]
-
-	ldr	r5, VC_COMM
-	strb	r0, [r5 + #1] ; VC_DATA = VC_COMM + 1
-	strb	r1, [r5 + #2]
-	strb	r2, [r5 + #3]
-	str	r3, [r5 + #4] ; VC_DATA + 3 = VC_ADDRESS
-	str	r4, [r5 + #6]
-
-	ldr	r6, VC_WRITE_RGB ; send signal
-	str	r6, [r5]
-
-	ldr	r6, [sp]
-	ldr	r5, [sp + #2]
-	add	sp, sp, #4
-	ret
 ; r0 resolution
 vc_set_def_resolution:
 	sub	sp, sp, #4
@@ -149,100 +136,6 @@ vc_set_def_resolution:
 
 	ldr	r1, [sp]
 	add	sp, sp, #4
-
-; r0: is_black ; (r3, r4): addr, r5: idx
-draw_bw:
-	sub	sp, sp, #10
-	str	r6, [sp + #6]
-	str	r4, [sp + #6]
-	str	r3, [sp + #4]
-	str	r2, [sp + #2]
-	str	r1, [sp]
-
-	addw	r3, r4, r5	; indexed address
-
-	sub	r6, r0, #0
-	bz	draw_white
-	ldr	r0, #0
-	ldr	r1, #0
-	ldr	r2, #0
-	ldr	r0, #0
-	bra	draw_bw_ret
-draw_white:
-	ldr	r0, #0xFFFF
-	ldr	r1, #0xFFFF
-	ldr	r2, #0xFFFF
-	ldr	r0, #1
-draw_bw_ret:
-	call	[vc_set_pixel]
-
-	ldr	r1, [sp]
-	ldr	r2, [sp + #2]
-	str	r3, [sp + #4]
-	str	r4, [sp + #6]
-	str	r6, [sp + #8]
-	add	sp, sp, #10
-	ret
-
-; r0, first (r3, r4): addr start
-draw_line:
-	sub	sp, sp, #6
-	str	r0, [sp + #4]
-	str	r1, [sp + #2]
-	str	r5, [sp]
-
-	ldr	r5, #0
-draw_line_loop:
-	sub	r1, r5, SCREEN_WIDTH
-	bz	draw_line_ret
-	call	[draw_bw]
-	inc	r5
-	bra	draw_line_loop
-draw_line_ret:
-
-	ldr	r5, [sp]
-	ldr	r1, [sp + #2]
-	ldr	r0, [sp + #4]
-	add	sp, sp, #6
-	ret
-
-draw_chess_pattern:
-	sub	sp, sp, #10
-	str	r4, [sp + #8]
-	str	r3, [sp + #6]
-	str	r2, [sp + #4]
-	str	r1, [sp + #2]
-	str	r0, [sp]
-
-	ldr	r0, #0
-	ldr	r1, #0
-	ldr	r3, #0
-	ldr	r4, #0
-
-draw_chess_pattern_loop:
-	sub	r2, r1, SCREEN_HEIGHT
-	bz	draw_chess_pattern_ret
-	sub	r2, r0, #0
-	bz	wfirst
-	ldr	r0, #0
-	call	[draw_line]
-	inc	r1
-	bra	draw_chess_pattern_loop
-wfirst:
-	ldr	r0, #1
-	call	[draw_line]
-	inc	r1
-	bra	draw_chess_pattern_loop
-
-draw_chess_pattern_ret:
-	ldr	r0, [sp]
-	ldr	r1, [sp + #2]
-	ldr	r2, [sp + #4]
-	ldr	r3, [sp + #6]
-	ldr	r4, [sp + #8]
-	add	sp, sp, #10
-	ret
-
 
 fill_screen:
 	sub	sp, sp, #14
@@ -272,15 +165,18 @@ fill_screen:
 loop1:
 	sub	r0, r3, SCREEN_WIDTH
 	bz	loop2
+
 	str	r5, [r2 + #4]
 	str	r6, [r2 + #6]
 	strb	r1, [r2]
 	incw	r5, r6
+
 	inc	r3
 	bra	loop1
 loop2:
 	sub	r0, r4, SCREEN_HEIGHT
 	bz	fill_screen_ret
+
 	inc	r4
 	ldr	r3, #0
 	bra	loop1
@@ -311,17 +207,18 @@ start:
 	call	[fill_screen]
 
 	srb	ps, #13				; enable cpu hw interrupts
+
 	ldr	r0, #0
 	str	r0, [DDRB]			; set ddrb and ddra as input
 	str	r0, [DDRA]			; set ddrb as input
 
 	call	[enable_interrupt_controller]	; enable io-board interrupt controller
 
-	ldr	r0, (debug_keypress_handler & #0xFFFF0000) >> #16
-	ldr	r1, debug_keypress_handler & #0xFFFF
+	;ldr	r0, (debug_keypress_handler & #0xFFFF0000) >> #16
+	;ldr	r1, debug_keypress_handler & #0xFFFF
 
-	str	r0, [keypress_handler_hb]
-	str	r1, [keypress_handler_lb]	; set keypress handler
+	;str	r0, [keypress_handler_hb]
+	;str	r1, [keypress_handler_lb]	; set keypress handler
 	; setup interrupts
 loop:
 	bra	loop
@@ -351,15 +248,19 @@ interrupt:
 
 	ldrb	r2, [PORTA]		; interrupt type
 	ldrb	r0, [PORTA + #1]	; interrupt info
+
 	sub	r2, r2, KEYBOARD_INTERRUPT
 	bz	keypress
+
 	bra	interrupt_return
 keypress:
 	ldr	r1, [PORTB]		; key info
 	call	[keyboard_event]
+
 interrupt_return:
 	ldr	r0, CLEAR_INTERRUPT << #8
 	str	r0, [PORTA]
+
 	ldr	r2, [sp]
 	ldr	r1, [sp + #2]
 	ldr	r0, [sp + #4]
@@ -368,6 +269,6 @@ interrupt_return:
 
 
 .data:
-	u16	keypress_handler_hb = #0
-	u16	keypress_handler_lb = #0
+	u16	keypress_handler_hb = (debug_keypress_handler & #0xFFFF0000) >> #16
+	u16	keypress_handler_lb = debug_keypress_handler & #0xFFFF
 	u16	resolution = VC_RESOLUTION_640X480

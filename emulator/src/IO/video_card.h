@@ -36,9 +36,8 @@ typedef struct video_card video_card_t;
 typedef void (*vc_update_resolution_callback_func_t)(video_card_t *vc, int resolution);
 
 struct video_card {
-	vc_color_t		*frame_buffers[2];
-	int			active_frame_buffer;
-	int			rendered_frame_buffer;
+	vc_color_t			*active_frame_buffer;
+	vc_color_t			*rendered_frame_buffer;
 
 	pthread_mutex_t		mutex;
 
