@@ -320,7 +320,6 @@ static void set_carry(emulator_t *em, u32_t alu_res)
 		cpu_clear_flag(em->cpu, FLAG_CARRY);
 }
 
-/*
 static void set_carry_wide(emulator_t *em, u64_t alu_res)
 {
 	if (alu_res > 0xFFFFFFFF)
@@ -328,64 +327,61 @@ static void set_carry_wide(emulator_t *em, u64_t alu_res)
 	else
 		cpu_clear_flag(em->cpu, FLAG_CARRY);
 }
-*/
 
-typedef u32_t (*perform_binop_t)(emulator_t*, u16_t, u16_t);
-
-static u32_t adc_binop_func(emulator_t *em, u16_t reg_data, u16_t ext_data)
+static void set_borrow(emulator_t *em, u32_t alu_res)
 {
-	u32_t alu_res;
-
-	alu_res = reg_data + ext_data;
-
-	if (cpu_get_flag(em->cpu, FLAG_CARRY))
-		alu_res += 1;
-
-	set_carry(em, alu_res);
-
-	return alu_res;
+	if ((i16_t)alu_res < 0)
+		cpu_set_flag(em->cpu, FLAG_CARRY);
+	else
+		cpu_clear_flag(em->cpu, FLAG_CARRY);
 }
 
-static u32_t add_binop_func(emulator_t *em, u16_t reg_data, u16_t ext_data)
+static void set_borrow_wide(emulator_t *em, u64_t alu_res)
 {
-	return reg_data + ext_data;
+	if ((i32_t)alu_res < 0)
+		cpu_set_flag(em->cpu, FLAG_CARRY);
+	else
+		cpu_clear_flag(em->cpu, FLAG_CARRY);
 }
-
-static u32_t sbc_binop_func(emulator_t *em, u16_t reg_data, u16_t ext_data)
-{
-	return adc_binop_func(em, reg_data, (u16_t)-ext_data);
-}
-
-static u32_t sub_binop_func(emulator_t *em, u16_t reg_data, u16_t ext_data)
-{
-	return add_binop_func(em, reg_data, (u16_t)-ext_data);
-}
-
-static u32_t eor_binop_func(emulator_t *em, u16_t reg_data, u16_t ext_data)
-{
-	return reg_data ^ ext_data;
-}
-
-static u32_t orr_binop_func(emulator_t *em, u16_t reg_data, u16_t ext_data)
-{
-	return reg_data | ext_data;
-}
-
-static u32_t and_binop_func(emulator_t *em, u16_t reg_data, u16_t ext_data)
-{
-	return reg_data & ext_data;
-}
-
-static void binop(emulator_t *em, int addr_mode, perform_binop_t perform_op)
+static void binop(emulator_t *em, int ins, int addr_mode)
 {
 	u16_t *reg_d, *reg_s;
-	u16_t rhs;
+	u16_t lhs;
 	u32_t alu_res;
 
 	fetch_reg_pair(em, &reg_d, &reg_s);
 
-	rhs = get_word_indirect(em, addr_mode, false);
-	alu_res = perform_op(em, *reg_s, rhs);
+	lhs = get_word_indirect(em, addr_mode, false);
+
+	switch (ins) {
+		case INSTR_ADC:
+			alu_res = *reg_s + lhs + cpu_get_flag(em->cpu, FLAG_CARRY);
+			set_carry(em, alu_res);
+			break;
+		case INSTR_ADD:
+			alu_res = *reg_s + lhs;
+			break;
+		case INSTR_SBC:
+			alu_res = *reg_s - lhs + (1 - cpu_get_flag(em->cpu, FLAG_CARRY));
+			set_borrow(em, alu_res);
+			break;
+		case INSTR_SUB:
+			alu_res = *reg_s - lhs;
+			break;
+		case INSTR_EOR:
+			alu_res = *reg_s ^ lhs;
+			break;
+		case INSTR_ORR:
+			alu_res = *reg_s | lhs;
+			break;
+		case INSTR_AND:
+			alu_res = *reg_s & lhs;
+			break;
+
+		default:
+			exit_error("not a binop: %02X\n", ins);
+			break;
+	}
 
 	set_zn_flags(em, alu_res);
 
@@ -408,14 +404,14 @@ static void binop_wide(emulator_t *em, int ins, int addr_mode)
 	switch (ins) {
 		case INSTR_ADCW:
 			alu_res = lhs + rhs + cpu_get_flag(em->cpu, FLAG_CARRY);
-			(alu_res > 0xFFFFFFFF) ? cpu_set_flag(em->cpu, FLAG_CARRY) : cpu_clear_flag(em->cpu, FLAG_CARRY);
+			set_carry_wide(em, alu_res);
 			break;
 		case INSTR_ADDW:
 			alu_res = lhs + rhs;
 			break;
 		case INSTR_SBCW:
 			alu_res = lhs - rhs + (1 - cpu_get_flag(em->cpu, FLAG_CARRY));
-			((i32_t)alu_res < 0) ? cpu_set_flag(em->cpu, FLAG_CARRY) : cpu_clear_flag(em->cpu, FLAG_CARRY);
+			set_borrow_wide(em, alu_res);
 			break;
 		case INSTR_SUBW:
 			alu_res = lhs - rhs;
@@ -471,7 +467,7 @@ static void unop(emulator_t *em, int ins, int addr_mode)
 			set_zn_flags(em, alu_res);
 			break;
 		default:
-			ERR();
+			exit_error("not a unop: %02X\n", ins);
 			break;
 	}
 
@@ -499,7 +495,7 @@ static void unop_wide(emulator_t *em, int ins)
 			break;
 
 		default:
-			ERR();
+			exit_error("not a wide unop: %02X\n", ins);
 			break;
 	}
 
@@ -721,14 +717,14 @@ int emulator_execute(emulator_t *em)
 		#define SINSTR_ADC(addr_mode) case SINSTR_ADC_##addr_mode :
 		XMACRO_ADDRESSING_MODES(SINSTR_ADC)
 			addr_mode = opcode - INSTR_ADC + ADDR_MODE_IMMIDIATE;
-			binop(em, addr_mode, adc_binop_func);
+			binop(em, INSTR_ADC, addr_mode);
 			break;
 		#undef SINSTR_ADC
 
 		#define SINSTR_ADD(addr_mode) case SINSTR_ADD_##addr_mode :
 		XMACRO_ADDRESSING_MODES(SINSTR_ADD)
 			addr_mode = opcode - INSTR_ADD + ADDR_MODE_IMMIDIATE;
-			binop(em, addr_mode, add_binop_func);
+			binop(em, INSTR_ADD, addr_mode);
 			break;
 		#undef SINSTR_ADD
 
@@ -749,14 +745,14 @@ int emulator_execute(emulator_t *em)
 		#define SINSTR_SBC(addr_mode) case SINSTR_SBC_##addr_mode :
 		XMACRO_ADDRESSING_MODES(SINSTR_SBC)
 			addr_mode = opcode - INSTR_SBC + ADDR_MODE_IMMIDIATE;
-			binop(em, addr_mode, sbc_binop_func);
+			binop(em, INSTR_SBC, addr_mode);
 			break;
 		#undef SINSTR_SBC
 
 		#define SINSTR_SUB(addr_mode) case SINSTR_SUB_##addr_mode :
 		XMACRO_ADDRESSING_MODES(SINSTR_SUB)
 			addr_mode = opcode - INSTR_SUB + ADDR_MODE_IMMIDIATE;
-			binop(em, addr_mode, sub_binop_func);
+			binop(em, INSTR_SUB, addr_mode);
 			break;
 		#undef SINSTR_SUB
 
@@ -777,21 +773,21 @@ int emulator_execute(emulator_t *em)
 		#define SINSTR_EOR(addr_mode) case SINSTR_EOR_##addr_mode :
 		XMACRO_ADDRESSING_MODES(SINSTR_EOR)
 			addr_mode = opcode - INSTR_EOR + ADDR_MODE_IMMIDIATE;
-			binop(em, addr_mode, eor_binop_func);
+			binop(em, INSTR_EOR, addr_mode);
 			break;
 		#undef SINSTR_EOR
 
 		#define SINSTR_ORR(addr_mode) case SINSTR_ORR_##addr_mode :
 		XMACRO_ADDRESSING_MODES(SINSTR_ORR)
 			addr_mode = opcode - INSTR_ORR + ADDR_MODE_IMMIDIATE;
-			binop(em, addr_mode, orr_binop_func);
+			binop(em, INSTR_ORR, addr_mode);
 			break;
 		#undef SINSTR_ORR
 
 		#define SINSTR_AND(addr_mode) case SINSTR_AND_##addr_mode :
 		XMACRO_ADDRESSING_MODES(SINSTR_AND)
 			addr_mode = opcode - INSTR_AND + ADDR_MODE_IMMIDIATE;
-			binop(em, addr_mode, and_binop_func);
+			binop(em, INSTR_AND, addr_mode);
 			break;
 		#undef SINSTR_AND
 
