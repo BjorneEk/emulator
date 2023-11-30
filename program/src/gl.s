@@ -45,9 +45,7 @@ draw_block:
 	ldr	r5, BLOCK_SIZE
 
 	ldr	r0, [r2 + #4]
-	str	r0, [OUT]
 	ldr	r1, [r2 + #6]
-	str	r1, [OUT]
 
 db_loop1:
 	strb	r3, [r2]
@@ -73,10 +71,10 @@ db_loop2:
 	strb	r3, [r2]
 
 	ldr	r0, [sp]
-	str	r1, [sp + #2]
-	str	r2, [sp + #4]
-	str	r3, [sp + #6]
-	str	r4, [sp + #8]
-	str	r5, [sp + #10]
+	ldr	r1, [sp + #2]
+	ldr	r2, [sp + #4]
+	ldr	r3, [sp + #6]
+	ldr	r4, [sp + #8]
+	ldr	r5, [sp + #10]
 	add	sp, sp, #12
 	ret

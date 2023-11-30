@@ -320,6 +320,7 @@ static void set_carry(emulator_t *em, u32_t alu_res)
 		cpu_clear_flag(em->cpu, FLAG_CARRY);
 }
 
+/*
 static void set_carry_wide(emulator_t *em, u64_t alu_res)
 {
 	if (alu_res > 0xFFFFFFFF)
@@ -327,6 +328,7 @@ static void set_carry_wide(emulator_t *em, u64_t alu_res)
 	else
 		cpu_clear_flag(em->cpu, FLAG_CARRY);
 }
+*/
 
 typedef u32_t (*perform_binop_t)(emulator_t*, u16_t, u16_t);
 
@@ -390,38 +392,7 @@ static void binop(emulator_t *em, int addr_mode, perform_binop_t perform_op)
 	*reg_d = alu_res;
 }
 
-typedef u64_t (*perform_binop_wide_t)(emulator_t*, u32_t, u16_t);
-
-static u64_t adcw_binop_func(emulator_t *em, u32_t reg_data, u16_t ext_data)
-{
-	u64_t alu_res;
-
-	alu_res = reg_data + ext_data;
-
-	if (cpu_get_flag(em->cpu, FLAG_CARRY))
-		alu_res += 1;
-
-	set_carry_wide(em, alu_res);
-
-	return alu_res;
-}
-
-static u64_t addw_binop_func(emulator_t *em, u32_t reg_data, u16_t ext_data)
-{
-	return reg_data + ext_data;
-}
-
-static u64_t sbcw_binop_func(emulator_t *em, u32_t reg_data, u16_t ext_data)
-{
-	return adcw_binop_func(em, reg_data, (u16_t)-ext_data);
-}
-
-static u64_t subw_binop_func(emulator_t *em, u32_t reg_data, u16_t ext_data)
-{
-	return addw_binop_func(em, reg_data, (u16_t)-ext_data);
-}
-
-static void binop_wide(emulator_t *em, int addr_mode, perform_binop_wide_t perform_op_wide)
+static void binop_wide(emulator_t *em, int ins, int addr_mode)
 {
 	u16_t *reg_dh, *reg_dl;
 	u32_t lhs;
@@ -433,7 +404,27 @@ static void binop_wide(emulator_t *em, int addr_mode, perform_binop_wide_t perfo
 	lhs = (u32_t)(*reg_dh) << 16 | (u32_t)(*reg_dl);
 
 	rhs = get_word_indirect(em, addr_mode, false);
-	alu_res = perform_op_wide(em, lhs, rhs);
+	
+	switch (ins) {
+		case INSTR_ADCW:
+			alu_res = lhs + rhs + cpu_get_flag(em->cpu, FLAG_CARRY);
+			(alu_res > 0xFFFFFFFF) ? cpu_set_flag(em->cpu, FLAG_CARRY) : cpu_clear_flag(em->cpu, FLAG_CARRY);
+			break;
+		case INSTR_ADDW:
+			alu_res = lhs + rhs;
+			break;
+		case INSTR_SBCW:
+			alu_res = lhs - rhs + (1 - cpu_get_flag(em->cpu, FLAG_CARRY));
+			((i32_t)alu_res < 0) ? cpu_set_flag(em->cpu, FLAG_CARRY) : cpu_clear_flag(em->cpu, FLAG_CARRY);
+			break;
+		case INSTR_SUBW:
+			alu_res = lhs - rhs;
+			break;
+
+		default:
+			exit_error("not a wide binop: %02X\n", ins);
+			break;
+	}
 
 	set_zn_flags_wide(em, alu_res);
 
@@ -744,14 +735,14 @@ int emulator_execute(emulator_t *em)
 		#define SINSTR_ADCW(addr_mode) case SINSTR_ADCW_##addr_mode :
 		XMACRO_ADDRESSING_MODES(SINSTR_ADCW)
 			addr_mode = opcode - INSTR_ADCW + ADDR_MODE_IMMIDIATE;
-			binop_wide(em, addr_mode, adcw_binop_func);
+			binop_wide(em, INSTR_ADCW, addr_mode);
 			break;
 		#undef SINSTR_ADCW
 
 		#define SINSTR_ADDW(addr_mode) case SINSTR_ADDW_##addr_mode :
 		XMACRO_ADDRESSING_MODES(SINSTR_ADDW)
 			addr_mode = opcode - INSTR_ADDW + ADDR_MODE_IMMIDIATE;
-			binop_wide(em, addr_mode, addw_binop_func);
+			binop_wide(em, INSTR_ADDW, addr_mode);
 			break;
 		#undef SINSTR_ADDW
 
@@ -772,14 +763,14 @@ int emulator_execute(emulator_t *em)
 		#define SINSTR_SBCW(addr_mode) case SINSTR_SBCW_##addr_mode :
 		XMACRO_ADDRESSING_MODES(SINSTR_SBCW)
 			addr_mode = opcode - INSTR_SBCW + ADDR_MODE_IMMIDIATE;
-			binop_wide(em, addr_mode, sbcw_binop_func);
+			binop_wide(em, INSTR_SBCW, addr_mode);
 			break;
 		#undef SINSTR_SBCW
 
 		#define SINSTR_SUBW(addr_mode) case SINSTR_SUBW_##addr_mode :
 		XMACRO_ADDRESSING_MODES(SINSTR_SUBW)
 			addr_mode = opcode - INSTR_SUBW + ADDR_MODE_IMMIDIATE;
-			binop_wide(em, addr_mode, subw_binop_func);
+			binop_wide(em, INSTR_SUBW, addr_mode);
 			break;
 		#undef SINSTR_SBCW
 
