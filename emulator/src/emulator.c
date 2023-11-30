@@ -59,7 +59,7 @@ static void write_word(emulator_t *em, u32_t address, u16_t data)
 {
 	switch (address) {
 		case 0:
-			BUG("%i, %c\n", data, (char)data);
+			BUG("%i, %04X\n", data, data);
 			break;
 		case ADDRESS_PORTA:
 			io_write_porta(em->io, data, IO_INTERNAL_ACCESS);
